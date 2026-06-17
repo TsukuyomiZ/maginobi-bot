@@ -1,8 +1,25 @@
 require('dotenv').config();
+const http = require('http');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const connectDB = require('./config/database');
 const loadCommands = require('./loaders/commandLoader');
 const loadEvents = require('./loaders/eventLoader');
+
+// ========================
+// Keep-alive HTTP server
+// ========================
+// Discord bots 不會主動監聽 port，但 Render 的 Web Service 要求程式必須
+// 綁定 process.env.PORT，否則會出現 "No open ports detected"。
+// 這個極簡 server 用來通過偵測，同時可作為健康檢查端點。
+const PORT = process.env.PORT || 3000;
+http
+  .createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running');
+  })
+  .listen(PORT, () => {
+    console.log(`[HTTP] Health check server listening on port ${PORT}`);
+  });
 
 // ========================
 // Initialize Discord Client
