@@ -28,7 +28,19 @@ module.exports = {
         .setName('角色名稱')
         .setDescription('（選填）要比較的角色，留空則用當前主角')
         .setRequired(false)
+        .setAutocomplete(true)
     ),
+
+  // 自動完成：列出「當前使用者自己的角色」供下拉選擇
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused().toLowerCase();
+    const chars = await userController.listCharacters(interaction.user.id);
+    const choices = chars
+      .filter((c) => c.userName.toLowerCase().includes(focused))
+      .slice(0, 25)
+      .map((c) => ({ name: c.userName, value: c.userName }));
+    await interaction.respond(choices);
+  },
 
   async execute(interaction) {
     // 有指定角色名稱 → 用該隻；否則用當前主角

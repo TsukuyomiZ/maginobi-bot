@@ -7,6 +7,19 @@ const { Events, MessageFlags } = require('discord.js');
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
+    // ── Autocomplete：動態提供選項（例如使用者自己的角色清單）──────
+    if (interaction.isAutocomplete()) {
+      const command = interaction.client.commands.get(interaction.commandName);
+      if (command && typeof command.autocomplete === 'function') {
+        try {
+          await command.autocomplete(interaction);
+        } catch (error) {
+          console.error(`[Event:interactionCreate] Autocomplete error for /${interaction.commandName}:`, error);
+        }
+      }
+      return;
+    }
+
     // Only handle chat input commands (slash commands)
     if (!interaction.isChatInputCommand()) return;
 
