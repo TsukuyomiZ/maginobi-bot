@@ -1,5 +1,6 @@
 const { Events, ActivityType } = require('discord.js');
 const guildController = require('../controllers/guildController');
+const startWeeklyNotiScheduler = require('../schedulers/weeklyNotiScheduler');
 
 /**
  * ready Event
@@ -23,5 +24,8 @@ module.exports = {
         console.error(`[Event:ready] Failed to register guild ${guild.name}:`, error);
       }
     });
+
+    // 啟動每週更新提醒排程器
+    startWeeklyNotiScheduler(client);
   },
 };
