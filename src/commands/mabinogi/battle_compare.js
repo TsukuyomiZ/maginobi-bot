@@ -228,10 +228,15 @@ module.exports = {
         });
       });
 
-      return battleInteraction.update({
-        embeds: [blockedEmbed],
+      await battleInteraction.update({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setDescription('✅ 比較完成，結果已公開顯示於下方 👇'),
+        ],
         components: [],
       });
+      return interaction.followUp({ embeds: [blockedEmbed] });
     }
 
     // ── Step 7：計算有效爆擊率 & 平衡傷害 ───────────────────────
@@ -343,8 +348,13 @@ module.exports = {
       .setTimestamp();
 
     await battleInteraction.update({
-      embeds: [resultEmbed],
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setDescription('✅ 比較完成，結果已公開顯示於下方 👇'),
+      ],
       components: [],
     });
+    await interaction.followUp({ embeds: [resultEmbed] });
   },
 };
