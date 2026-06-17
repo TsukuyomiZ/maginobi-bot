@@ -204,7 +204,7 @@ module.exports = {
 
       let desc = '';
       if (isSTD) {
-        desc += `💡 **此關卡為 STD 模式（比對屬性已扣除：攻擊力 -709、防禦力 -300、爆擊 -1、破壞力 -500）**\n\n`;
+        desc += `💡 **此關卡為 時空扭曲 模式（比對屬性已扣除：攻擊力 -709、防禦力 -300、爆擊 -1、破壞力 -500）**\n\n`;
       }
       if (missingFields.length > 0) {
         const missingNames = missingFields.map(f => f.name).join('、');
