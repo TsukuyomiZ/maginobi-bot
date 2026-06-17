@@ -8,7 +8,9 @@
     "dev": "nodemon src/index.js",
     "deploy-commands": "node src/scripts/deployCommands.js",
     "clear-global": "node src/scripts/clearCommands.js global",
-    "clear-guild": "node src/scripts/clearCommands.js guild"
+    "clear-guild": "node src/scripts/clearCommands.js guild",
+    "migrate-multichar": "node src/scripts/migrateMultiChar.js",
+    "migrate-multichar:dry": "node src/scripts/migrateMultiChar.js --dry"
   },
   "keywords": [
     "discord",

@@ -31,8 +31,8 @@ module.exports = {
     .setDescription('以你的角色為基準，比對其他使用者的角色數值（結果僅你可見）'),
 
   async execute(interaction) {
-    // ── Step 1：取得發起者自己的角色 ──────────────────────────
-    const me = await userController.getUser(interaction.user.id);
+    // ── Step 1：取得發起者的當前主角作為比對基準 ──────────────
+    const me = await userController.getActiveCharacter(interaction.user.id);
 
     if (!me) {
       return interaction.reply({
@@ -45,29 +45,29 @@ module.exports = {
       });
     }
 
-    // ── Step 2：取得其他使用者清單 ────────────────────────────
-    const others = await userController.getOtherUsers(interaction.user.id);
+    // ── Step 2：取得其他人的所有角色 ──────────────────────────
+    const others = await userController.getAllCharacters(interaction.user.id);
 
     if (!others.length) {
       return interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setColor(0xED4245)
-            .setDescription('❌ 目前沒有其他已註冊的使用者可以比對。'),
+            .setDescription('❌ 目前沒有其他已註冊的角色可以比對。'),
         ],
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ── Step 3：顯示使用者 dropdown ───────────────────────────
+    // ── Step 3：顯示角色 dropdown（其他人的所有角色）──────────
     const userMenu = new StringSelectMenuBuilder()
       .setCustomId('compare_user_select')
-      .setPlaceholder('👤 請選擇要比對的使用者角色')
+      .setPlaceholder('👤 請選擇要比對的角色')
       .addOptions(
-        others.map((u) => ({
-          label: u.userName.slice(0, 100),
-          description: `Discord：${u.discordUsername}`.slice(0, 100),
-          value: u.discordId,
+        others.map((c) => ({
+          label: c.userName.slice(0, 100),
+          description: `Discord：${c.discordUsername}`.slice(0, 100),
+          value: c._id.toString(),
         }))
       );
 
@@ -107,7 +107,7 @@ module.exports = {
     }
 
     // ── Step 5：取得對方角色資料 ──────────────────────────────
-    const other = await userController.getUser(selectInteraction.values[0]);
+    const other = await userController.getCharacterById(selectInteraction.values[0]);
 
     if (!other) {
       return selectInteraction.update({

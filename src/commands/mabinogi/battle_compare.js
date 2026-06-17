@@ -22,9 +22,17 @@ const BALANCE_THRESHOLD = 100;
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('battle_compare')
-    .setDescription('比較你的角色屬性與關卡需求'),
+    .setDescription('比較你的角色屬性與關卡需求')
+    .addStringOption((option) =>
+      option
+        .setName('角色名稱')
+        .setDescription('（選填）要比較的角色，留空則用當前主角')
+        .setRequired(false)
+    ),
 
   async execute(interaction) {
+    // 有指定角色名稱 → 用該隻；否則用當前主角
+    const targetName = interaction.options.getString('角色名稱');
     // ── Step 1：顯示等級 dropdown ────────────────────────────
     const levelMenu = new StringSelectMenuBuilder()
       .setCustomId('level_select')
@@ -127,7 +135,9 @@ module.exports = {
     // ── Step 5：撈取關卡完整資料 + 使用者角色資料 ─────────────
     const [battle, user] = await Promise.all([
       battleController.getBattleById(battleInteraction.values[0]),
-      userController.getUser(interaction.user.id),
+      targetName
+        ? userController.getCharacterByName(interaction.user.id, targetName)
+        : userController.getActiveCharacter(interaction.user.id),
     ]);
 
     if (!user) {
@@ -135,7 +145,11 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setColor(0xED4245)
-            .setDescription('❌ 找不到你的角色資料，請先使用 `/register` 註冊。'),
+            .setDescription(
+              targetName
+                ? `❌ 找不到名為 **${targetName}** 的角色。可用 \`/character list\` 查看你已註冊的角色。`
+                : '❌ 找不到你的角色資料，請先使用 `/register` 註冊。'
+            ),
         ],
         components: [],
       });
