@@ -6,15 +6,23 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "deploy-commands": "node src/scripts/deployCommands.js"
+    "deploy-commands": "node src/scripts/deployCommands.js",
+    "clear-global": "node src/scripts/clearCommands.js global",
+    "clear-guild": "node src/scripts/clearCommands.js guild"
   },
-  "keywords": ["discord", "bot", "mabinogi", "mongodb"],
+  "keywords": [
+    "discord",
+    "bot",
+    "mabinogi",
+    "mongodb"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
-    "mongoose": "^8.8.1"
+    "mongoose": "^8.8.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"

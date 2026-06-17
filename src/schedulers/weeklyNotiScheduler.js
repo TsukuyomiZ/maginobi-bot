@@ -73,24 +73,25 @@ async function fireHourlyReminders(client) {
  * @param {import('discord.js').Client} client
  */
 function startWeeklyNotiScheduler(client) {
-  let lastFiredKey = null;
-
-  const tick = () => {
+  // 計算「現在距離下一個整點」還有幾毫秒（以台灣時間為準）。
+  // 多加 1 秒緩衝，避免 timer 提早幾毫秒觸發、落在前一個整點。
+  const msUntilNextHour = () => {
     const tw = getTaiwanNow();
-    // 只在整點觸發
-    if (tw.getMinutes() !== 0) return;
-
-    // 防止同一整點重複觸發（例如 interval 在分鐘 0 內跑了兩次）
-    const key = `${tw.getFullYear()}-${tw.getMonth()}-${tw.getDate()}-${tw.getHours()}`;
-    if (key === lastFiredKey) return;
-    lastFiredKey = key;
-
-    fireHourlyReminders(client);
+    const ms =
+      ((59 - tw.getMinutes()) * 60 + (60 - tw.getSeconds())) * 1000 - tw.getMilliseconds();
+    return ms + 1000;
   };
 
-  // 每分鐘檢查一次
-  setInterval(tick, 60_000);
-  console.log('[WeeklyNotiScheduler] ✅ 排程器已啟動（每分鐘檢查，整點發送）');
+  // 睡到下一個整點才醒來發送，發送後再排下一次（一小時只醒一次）。
+  const scheduleNext = () => {
+    setTimeout(() => {
+      fireHourlyReminders(client);
+      scheduleNext();
+    }, msUntilNextHour());
+  };
+
+  scheduleNext();
+  console.log('[WeeklyNotiScheduler] ✅ 排程器已啟動（對齊整點，每小時觸發一次）');
 }
 
 module.exports = startWeeklyNotiScheduler;

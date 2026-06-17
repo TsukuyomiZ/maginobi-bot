@@ -15,7 +15,12 @@ const PORT = process.env.PORT || 3000;
 http
   .createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot is running');
+    // HEAD 請求只回 header、不回 body（保活 ping 建議用 HEAD，回應最小）
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+    res.end('OK');
   })
   .listen(PORT, () => {
     console.log(`[HTTP] Health check server listening on port ${PORT}`);
