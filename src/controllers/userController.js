@@ -46,6 +46,22 @@ const userController = {
   },
 
   /**
+   * Get all registered users except the given Discord ID（用於角色比對 dropdown）
+   * @param {string} excludeDiscordId - 要排除的 Discord ID（通常是發起者自己）
+   * @param {number} limit - 最多回傳幾筆（Discord 下拉選單上限 25）
+   */
+  async getOtherUsers(excludeDiscordId, limit = 25) {
+    try {
+      return await User.find({ discordId: { $ne: excludeDiscordId } })
+        .sort({ userName: 1 })
+        .limit(limit);
+    } catch (error) {
+      console.error('[UserController] getOtherUsers error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get leaderboard (top users by attack)
    * @param {number} limit
    */
