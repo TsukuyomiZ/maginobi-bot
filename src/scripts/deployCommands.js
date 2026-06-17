@@ -27,18 +27,31 @@ async function deployCommands() {
   }
 
   const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+  const guildId = process.env.DISCORD_GUILD_ID;
 
   try {
-    console.log(`[Deploy] 🔄 Registering ${commands.length} slash command(s) globally...`);
+    if (guildId) {
+      // 伺服器部署：只在指定伺服器生效，但「幾秒內」立即可用（適合測試）
+      console.log(`[Deploy] 🔄 Registering ${commands.length} command(s) to guild ${guildId}...`);
 
-    // 全域部署：所有加入此 Bot 的伺服器都能使用指令
-    // 注意：全域指令最多需要 1 小時才能在所有伺服器生效
-    const data = await rest.put(
-      Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
-      { body: commands }
-    );
+      const data = await rest.put(
+        Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, guildId),
+        { body: commands }
+      );
 
-    console.log(`[Deploy] ✅ Successfully registered ${data.length} command(s) globally!`);
+      console.log(`[Deploy] ✅ Successfully registered ${data.length} command(s) to guild ${guildId}! (即時生效)`);
+    } else {
+      // 全域部署：所有加入此 Bot 的伺服器都能使用指令
+      // 注意：全域指令最多需要 1 小時才能在所有伺服器生效
+      console.log(`[Deploy] 🔄 Registering ${commands.length} slash command(s) globally...`);
+
+      const data = await rest.put(
+        Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
+        { body: commands }
+      );
+
+      console.log(`[Deploy] ✅ Successfully registered ${data.length} command(s) globally! (最多需 1 小時生效)`);
+    }
   } catch (error) {
     console.error('[Deploy] ❌ Failed to deploy commands:', error);
   }
