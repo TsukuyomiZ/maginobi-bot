@@ -4,7 +4,7 @@ const { join } = require('path');
 /**
  * Command Loader
  * Dynamically loads all slash commands from the commands/ directory
- * Supports nested category folders (e.g., commands/general/, commands/mabinogi/)
+ * Supports nested category folders (e.g., commands/mabinogi/)
  * @param {Client} client - Discord.js Client instance
  */
 function loadCommands(client) {

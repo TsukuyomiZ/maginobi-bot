@@ -135,11 +135,9 @@ module.exports = {
 
     // ── 執行 OCR ──────────────────────────────────────────────
     let draft;
-    let rawText = '';
     try {
-      const result = await recognizeStats(attachment.url);
-      draft = { ...result.stats };
-      rawText = result.rawText || '';
+      const { stats } = await recognizeStats(attachment.url);
+      draft = { ...stats };
     } catch (error) {
       console.error('[register_image] OCR 失敗：', error);
       return interaction.editReply({
@@ -151,18 +149,8 @@ module.exports = {
       });
     }
 
-    // OCR_DEBUG=1 時，在結果下方顯示 tesseract 讀到的原始文字（僅本人可見），
-    // 方便排查「某欄位抓不到」是讀成亂碼還是整行漏讀。
-    const resultEmbed = buildResultEmbed(draft, userName);
-    if (process.env.OCR_DEBUG && rawText) {
-      resultEmbed.addFields({
-        name: '🐛 OCR 原文（debug）',
-        value: '```\n' + rawText.slice(0, 1000) + '\n```',
-      });
-    }
-
     const reply = await interaction.editReply({
-      embeds: [resultEmbed],
+      embeds: [buildResultEmbed(draft, userName)],
       components: buildButtons(draft),
     });
 

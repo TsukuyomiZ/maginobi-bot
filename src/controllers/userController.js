@@ -14,17 +14,6 @@ const userController = {
   MAX_CHARACTERS,
 
   /**
-   * 確保 User doc 存在並更新 discordUsername，回傳該 User
-   */
-  async getOrCreateUser(discordId, discordUsername) {
-    return User.findOneAndUpdate(
-      { discordId },
-      { $set: { discordId, discordUsername } },
-      { new: true, upsert: true, runValidators: true }
-    );
-  },
-
-  /**
    * 新增或更新一隻角色（以角色名稱為鍵：同名→更新、新名→新增）
    * 註冊/更新後會將該角色設為當前主角。
    * @returns {{ character, isNew }}

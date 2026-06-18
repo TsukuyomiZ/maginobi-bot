@@ -1,10 +1,5 @@
 const { createWorker } = require('tesseract.js');
 const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
-
-// 設定環境變數 OCR_DEBUG=1 時，會把前處理後的圖與原始辨識文字存到 debug/
-const DEBUG = !!process.env.OCR_DEBUG;
 
 /**
  * Stat OCR Service
@@ -167,24 +162,6 @@ async function recognizeStats(imageUrl) {
   const worker = await getWorker();
   const { data } = await worker.recognize(processed);
   const rawText = data.text || '';
-
-  // 除錯：把原始辨識文字印到 console（雲端如 Render 直接看 Logs 即可），
-  // 並嘗試存圖到本機 debug/（雲端暫存檔系統可能失敗，故與 log 分開、不影響 log）
-  if (DEBUG) {
-    // 先印文字：這一定要成功，雲端只靠這個
-    console.log(`[statOcr] DEBUG --- 原始辨識文字 ---\n${rawText}\n--------------------`);
-    // 再嘗試存檔（本機開發用，失敗無所謂）
-    try {
-      const dir = path.join(process.cwd(), 'debug');
-      fs.mkdirSync(dir, { recursive: true });
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      fs.writeFileSync(path.join(dir, `ocr-${stamp}.png`), processed);
-      fs.writeFileSync(path.join(dir, `ocr-${stamp}.txt`), rawText);
-      console.log(`[statOcr] DEBUG 圖片已存至 debug/ocr-${stamp}.png`);
-    } catch (err) {
-      console.warn('[statOcr] DEBUG 存檔略過（雲端暫存檔系統正常現象）：', err.message);
-    }
-  }
 
   const stats = parseStats(rawText);
 

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(node _test_parse.js)"
+      "PowerShell(node _test_parse.js)",
+      "PowerShell(node -e \"require\\('./src/services/statOcr.js'\\); require\\('./src/commands/mabinogi/register_image.js'\\); console.log\\('OK'\\)\")",
+      "Bash(grep -v \"^//\")",
+      "Bash(awk '/^const userController/,/^module\\\\.exports/ {print NR\": \"$0}' src/commands/general/ping.js)"
     ]
   }
 }

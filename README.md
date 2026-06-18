@@ -17,23 +17,40 @@ dc-mabinogi-bot/
     │   └── database.js         # MongoDB Atlas 連線設定
     ├── models/                 # 📦 Mongoose 資料模型
     │   ├── User.js
-    │   └── Guild.js
+    │   ├── Character.js
+    │   ├── Guild.js
+    │   ├── BattleInfo.js
+    │   └── WeekUpdateNotification.js
     ├── controllers/            # 🧠 業務邏輯層
     │   ├── userController.js
-    │   └── guildController.js
+    │   ├── guildController.js
+    │   ├── battleController.js
+    │   └── notificationController.js
     ├── commands/               # ⚡ Slash 指令
-    │   ├── general/
-    │   │   └── ping.js
     │   └── mabinogi/
-    │       └── profile.js
+    │       ├── register.js              # 手動註冊角色屬性
+    │       ├── register_image.js        # 上傳截圖自動辨識註冊
+    │       ├── info.js                  # 查看角色數據
+    │       ├── character.js             # 角色管理（list/switch/delete）
+    │       ├── character_compare.js     # 跨使用者角色比較
+    │       ├── battle_compare.js        # 角色 vs 關卡需求比較
+    │       ├── piece_price_calculate.js # 粉末價格計算機
+    │       └── weekly_noti_subscribe.js # 每週更新提醒訂閱
     ├── events/                 # 📡 Discord 事件處理
     │   ├── ready.js
     │   └── interactionCreate.js
     ├── loaders/                # 🔄 動態載入器
     │   ├── commandLoader.js
     │   └── eventLoader.js
+    ├── services/
+    │   └── statOcr.js          # 截圖屬性 OCR 辨識
+    ├── schedulers/
+    │   └── weeklyNotiScheduler.js  # 每週更新提醒排程
+    ├── data/
+    │   └── pieceYields.js      # 粉末產出資料
     └── scripts/
-        └── deployCommands.js   # 部署 Slash 指令到 Discord
+        ├── deployCommands.js   # 部署 Slash 指令到 Discord
+        └── clearCommands.js    # 清除 Slash 指令
 ```
 
 ---
@@ -95,5 +112,8 @@ module.exports = {
 
 | Collection | 說明 |
 |-----------|------|
-| `users` | Discord 使用者 + 瑪奇角色資訊 |
+| `users` | Discord 帳號層級資料 + 當前主角指標（activeCharacterId） |
+| `characters` | 瑪奇角色屬性（一個帳號可多隻角色） |
 | `guilds` | Discord 伺服器設定 |
+| `battleinfos` | 關卡 / Boss 屬性需求資料 |
+| `weekupdatenotifications` | 每週更新提醒訂閱 |
