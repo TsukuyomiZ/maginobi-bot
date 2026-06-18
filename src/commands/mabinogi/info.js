@@ -46,7 +46,7 @@ module.exports = {
           .setDescription(
             targetName
               ? `找不到名為 **${targetName}** 的角色。可用 \`/character list\` 查看你已註冊的角色。`
-              : '你還沒有註冊角色！\n請使用 `/register_image`（上傳截圖自動辨識）或 `/register`（手動輸入）來建立角色。\n不確定怎麼操作？輸入 `/help` 查看完整教學。'
+              : '你還沒有註冊角色！\n請使用 `/register` 來建立角色（可上傳截圖自動辨識，或只填角色名稱手動輸入）。\n不確定怎麼操作？輸入 `/help` 查看完整教學。'
           )
           .setTimestamp();
 

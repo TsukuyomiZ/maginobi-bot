@@ -4,7 +4,7 @@ const { getSampleImage } = require('../../utils/sampleImage');
 /**
  * /help command
  * 說明機器人的整體操作流程與各指令用途（僅本人可見）。
- * 流程：先用 /register 或 /register_image 註冊角色 → 再使用查看 / 比較 / 工具類功能。
+ * 流程：先用 /register 註冊角色 → 再使用查看 / 比較 / 工具類功能。
  */
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,10 +23,12 @@ module.exports = {
         {
           name: '1️⃣ 註冊角色（第一步，必做）',
           value:
-            '• `/register_image` — 上傳角色屬性截圖，**自動辨識**數值後確認註冊（最快）\n' +
-            '• `/register` — 手動輸入各項屬性註冊或更新\n' +
-            '＊兩種方式擇一即可；用相同角色名稱再註冊一次即為更新。\n' +
-            '＊不確定要截哪種畫面？參考下方示意圖，或執行 `/register_image`（不附截圖）看教學。',
+            '• `/register` — 註冊或更新角色，兩種方式擇一：\n' +
+            '　▸ **附上屬性截圖** → 自動辨識數值後確認（最快）\n' +
+            '　▸ **只填角色名稱、不附截圖** → 直接手動輸入\n' +
+            '＊兩種方式都能在確認前手動校正；用相同角色名稱再註冊一次即為更新。\n' +
+            '＊更新時這次沒填的選填屬性會沿用既有值，不會被清空。\n' +
+            '＊不確定要截哪種畫面？參考下方示意圖，或執行 `/register`（不附截圖也不填名稱）看教學。',
         },
         {
           name: '2️⃣ 查看與管理角色',
@@ -50,7 +52,7 @@ module.exports = {
             '• `/weekly_noti_subscribe` — 訂閱每週更新提醒（自訂星期與時間，台灣時間）',
         }
       )
-      .setFooter({ text: '💡 還沒註冊的話，先從 /register_image 上傳截圖開始最快！' });
+      .setFooter({ text: '💡 還沒註冊的話，先用 /register 上傳截圖開始最快！' });
 
     // 有示意圖檔案才附上（放在 src/assets/register_sample.png）
     const sample = getSampleImage();

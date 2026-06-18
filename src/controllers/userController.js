@@ -28,10 +28,15 @@ const userController = {
       let isNew;
 
       if (existing) {
-        // 同名 → 更新
+        // 同名 → 更新；本次未提供（null / undefined）的欄位沿用既有值，
+        // 避免把使用者這次沒填的選填屬性清成 null。
+        const updateData = { discordUsername };
+        for (const [key, value] of Object.entries(characterData)) {
+          if (value !== null && value !== undefined) updateData[key] = value;
+        }
         character = await Character.findByIdAndUpdate(
           existing._id,
-          { $set: { discordUsername, ...characterData } },
+          { $set: updateData },
           { new: true, runValidators: true }
         );
         isNew = false;
