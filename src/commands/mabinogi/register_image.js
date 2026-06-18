@@ -11,6 +11,7 @@ const {
 } = require('discord.js');
 const userController = require('../../controllers/userController');
 const { recognizeStats } = require('../../services/statOcr');
+const { getSampleImage } = require('../../utils/sampleImage');
 
 // 必填 / 選填欄位（label 用於顯示與 modal）
 const REQUIRED_FIELDS = [
@@ -112,15 +113,44 @@ module.exports = {
     .setName('register_image')
     .setDescription('上傳角色屬性截圖，自動辨識後確認註冊（僅你可見）')
     .addStringOption((opt) =>
-      opt.setName('角色名稱').setDescription('你的瑪英角色名稱').setRequired(true)
+      opt.setName('角色名稱').setDescription('你的瑪英角色名稱（附上截圖時必填）').setRequired(false)
     )
     .addAttachmentOption((opt) =>
-      opt.setName('截圖').setDescription('角色屬性畫面的截圖').setRequired(true)
+      opt.setName('截圖').setDescription('角色屬性畫面的截圖（留空可查看截圖教學）').setRequired(false)
     ),
 
   async execute(interaction) {
     const userName = interaction.options.getString('角色名稱');
     const attachment = interaction.options.getAttachment('截圖');
+
+    // 沒附截圖 → 顯示「該怎麼截圖」的教學（含示意圖）
+    if (!attachment) {
+      const tutorialEmbed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('📷 如何用截圖註冊角色')
+        .setDescription(
+          '1️⃣ 在遊戲中開啟角色的**屬性 / 角色資訊**面板\n' +
+          '2️⃣ 截取**整塊屬性數值**的畫面（像下方示意圖那樣，包含攻擊力、防禦力、暴擊、平衡…等）\n' +
+          '3️⃣ 再執行一次 `/register_image`，把截圖放到「**截圖**」欄位，並填上「**角色名稱**」\n\n' +
+          '💡 數字越清晰、裁切越乾淨，辨識越準確；辨識後仍可手動修正再確認。'
+        );
+
+      const sample = getSampleImage();
+      const payload = { embeds: [tutorialEmbed], flags: MessageFlags.Ephemeral };
+      if (sample) {
+        tutorialEmbed.setImage(sample.url);
+        payload.files = [sample.attachment];
+      }
+      return interaction.reply(payload);
+    }
+
+    // 有截圖但沒填角色名稱
+    if (!userName) {
+      return interaction.reply({
+        content: '❌ 請填寫「角色名稱」欄位後再送出。',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
     // 驗證是否為圖片
     if (!attachment.contentType || !attachment.contentType.startsWith('image/')) {
