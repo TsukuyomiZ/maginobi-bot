@@ -55,7 +55,7 @@ module.exports = {
 
       // ── 建立選填屬性區塊（只顯示有填的欄位）──────────────────
       const optionalFields = [
-        user.character_adDamage != null ? `**追加攻擊力：** ${user.character_adDamage}` : null,
+        user.character_adDamage != null ? `**追加傷害：** ${user.character_adDamage}` : null,
         user.character_ap       != null ? `**防禦貫穿：** ${user.character_ap}`         : null,
         user.character_dp       != null ? `**破壞力：** ${user.character_dp}`           : null,
         user.character_crit_def != null ? `**爆擊抗性：** ${user.character_crit_def}`   : null,

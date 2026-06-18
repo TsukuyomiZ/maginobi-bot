@@ -20,7 +20,7 @@ const REQUIRED_FIELDS = [
   { field: 'character_balance', label: '平衡' },
 ];
 const OPTIONAL_FIELDS = [
-  { field: 'character_adDamage', label: '追加攻擊力' },
+  { field: 'character_adDamage', label: '追加傷害' },
   { field: 'character_ap', label: '防禦貫穿' },
   { field: 'character_dp', label: '破壞力' },
   { field: 'character_crit_def', label: '爆擊抗性' },

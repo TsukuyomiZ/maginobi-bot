@@ -48,8 +48,8 @@ module.exports = {
     // ── 選填參數 ────────────────────────────────────────────
     .addIntegerOption((option) =>
       option
-        .setName('追加攻擊力')
-        .setDescription('（選填）追加攻擊力')
+        .setName('追加傷害')
+        .setDescription('（選填）追加傷害')
         .setRequired(false)
         .setMinValue(0)
     )
@@ -88,7 +88,7 @@ module.exports = {
         character_balance:  interaction.options.getInteger('平衡'),
 
         // ── 讀取選填參數（未填為 null）──────────────────────
-        character_adDamage: interaction.options.getInteger('追加攻擊力') ?? null,
+        character_adDamage: interaction.options.getInteger('追加傷害') ?? null,
         character_ap:       interaction.options.getInteger('防禦貫穿')   ?? null,
         character_dp:       interaction.options.getInteger('破壞力')     ?? null,
         character_crit_def: interaction.options.getInteger('爆擊抗性')   ?? null,
@@ -141,7 +141,7 @@ module.exports = {
           {
             name: '✨ 選填屬性',
             value: [
-              characterData.character_adDamage !== null ? `**追加攻擊力：** ${characterData.character_adDamage}` : null,
+              characterData.character_adDamage !== null ? `**追加傷害：** ${characterData.character_adDamage}` : null,
               characterData.character_ap       !== null ? `**防禦貫穿：** ${characterData.character_ap}`         : null,
               characterData.character_dp       !== null ? `**破壞力：** ${characterData.character_dp}`           : null,
               characterData.character_crit_def !== null ? `**爆擊抗性：** ${characterData.character_crit_def}`   : null,

@@ -188,7 +188,7 @@ module.exports = {
       { key: 'def', name: '防禦力', userField: 'character_def', reqField: 'req_def' },
       { key: 'crit', name: '爆擊', userField: 'character_crit', reqField: 'req_character_crit' },
       { key: 'balance', name: '平衡', userField: 'character_balance', reqField: 'req_balance' },
-      { key: 'adDamage', name: '追加攻擊力', userField: 'character_adDamage', reqField: 'req_adDamage' },
+      { key: 'adDamage', name: '追加傷害', userField: 'character_adDamage', reqField: 'req_adDamage' },
       { key: 'ap', name: '防禦貫穿', userField: 'character_ap', reqField: 'req_ap' },
       { key: 'dp', name: '破壞力', userField: 'character_dp', reqField: 'req_dp' },
     ];

@@ -1,4 +1,5 @@
 const { createWorker } = require('tesseract.js');
+const sharp = require('sharp');
 
 /**
  * Stat OCR Service
@@ -20,11 +21,11 @@ async function getWorker() {
 /**
  * 要抓取的欄位與對應關鍵字。
  * 順序很重要：較長/較特定的關鍵字要排在前面，避免被子字串先吃掉
- * （例如「追加攻擊力」必須比「攻擊力」先比對；「爆擊抗性」「爆擊傷害」
+ * （例如「追加傷害」必須比「攻擊力」「傷害」先比對；「爆擊抗性」「爆擊傷害」
  *  必須比「爆擊」先比對）。
  */
 const FIELD_PATTERNS = [
-  { field: 'character_adDamage', keywords: ['追加攻擊力', '追加攻擊', '追加'] },
+  { field: 'character_adDamage', keywords: ['追加傷害', '追加伤害', '追加攻擊力', '追加攻擊', '追加'] },
   { field: 'character_crit_def', keywords: ['爆擊抗性', '暴擊抗性', '爆擊抵抗', '暴擊抵抗'] },
   { field: 'character_atk',      keywords: ['攻擊力', '攻擊', '魔法攻擊'] },
   { field: 'character_def',      keywords: ['防禦力', '防禦', '防御力', '防御'] },
@@ -36,6 +37,37 @@ const FIELD_PATTERNS = [
 
 // 排除字：含這些字的行不拿來當對應欄位（避免「爆擊傷害量」被當成爆擊）
 const EXCLUDE_TERMS = ['傷害量', '伤害量', '傷害', '伤害'];
+
+/**
+ * 影像前處理：瑪奇屬性畫面是「深色背景＋淺色文字」，tesseract 對這種
+ * 對比與小字體辨識力差。這裡放大、灰階、拉對比後反白成「淺底深字」，
+ * 再輕微銳化，可大幅提升辨識率。
+ *
+ * 為求穩健採 best-effort：任何步驟失敗就回傳原始 buffer，不影響流程。
+ * @param {Buffer} buffer
+ * @returns {Promise<Buffer>}
+ */
+async function preprocessImage(buffer) {
+  try {
+    const img = sharp(buffer, { failOn: 'none' });
+    const meta = await img.metadata();
+
+    // 小圖放大有助於小字辨識；已很大的圖則維持原尺寸
+    const targetWidth = meta.width && meta.width < 1200 ? meta.width * 2 : meta.width;
+
+    return await img
+      .resize({ width: targetWidth, kernel: 'lanczos3' }) // 放大、平滑
+      .grayscale()                                        // 去除顏色干擾
+      .normalize()                                        // 拉伸對比（黑更黑、白更白）
+      .negate({ alpha: false })                           // 反白：淺底深字（tesseract 偏好）
+      .sharpen()                                          // 銳化筆畫邊緣
+      .png()
+      .toBuffer();
+  } catch (err) {
+    console.warn('[statOcr] 影像前處理失敗，改用原圖辨識：', err.message);
+    return buffer;
+  }
+}
 
 /**
  * 從一段文字中取出最後一個整數（移除千分位逗號）。
@@ -65,8 +97,11 @@ async function recognizeStats(imageUrl) {
   }
   const buffer = Buffer.from(await res.arrayBuffer());
 
+  // 前處理以提升辨識率（失敗會自動退回原圖）
+  const processed = await preprocessImage(buffer);
+
   const worker = await getWorker();
-  const { data } = await worker.recognize(buffer);
+  const { data } = await worker.recognize(processed);
   const rawText = data.text || '';
 
   const stats = {

@@ -45,7 +45,7 @@ const characterSchema = new mongoose.Schema(
     // ── 選填戰鬥屬性 ──────────────────────────────────────
     character_adDamage: {
       type: Number,
-      default: null,          // 追加攻擊力
+      default: null,          // 追加傷害
     },
     character_ap: {
       type: Number,
