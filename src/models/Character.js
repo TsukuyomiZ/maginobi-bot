@@ -57,7 +57,7 @@ const characterSchema = new mongoose.Schema(
     },
     character_crit_def: {
       type: Number,
-      default: null,          // 爆擊抗性
+      default: null,          // 爆擊抵抗
     },
   },
   {

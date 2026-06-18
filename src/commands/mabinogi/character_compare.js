@@ -16,7 +16,7 @@ const COMPARE_FIELDS = [
   { name: '追加傷害',   field: 'character_adDamage' },
   { name: '防禦貫穿',   field: 'character_ap' },
   { name: '破壞力',     field: 'character_dp' },
-  { name: '爆擊抗性',   field: 'character_crit_def' },
+  { name: '爆擊抵抗',   field: 'character_crit_def' },
 ];
 
 /**

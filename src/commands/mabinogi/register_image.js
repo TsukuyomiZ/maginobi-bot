@@ -23,7 +23,7 @@ const OPTIONAL_FIELDS = [
   { field: 'character_adDamage', label: '追加傷害' },
   { field: 'character_ap', label: '防禦貫穿' },
   { field: 'character_dp', label: '破壞力' },
-  { field: 'character_crit_def', label: '爆擊抗性' },
+  { field: 'character_crit_def', label: '爆擊抵抗' },
 ];
 
 // 將字串解析為整數（留空 / 非數字 → null）

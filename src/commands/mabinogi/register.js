@@ -69,8 +69,8 @@ module.exports = {
     )
     .addIntegerOption((option) =>
       option
-        .setName('爆擊抗性')
-        .setDescription('（選填）爆擊抗性')
+        .setName('爆擊抵抗')
+        .setDescription('（選填）爆擊抵抗')
         .setRequired(false)
         .setMinValue(0)
     ),
@@ -91,7 +91,7 @@ module.exports = {
         character_adDamage: interaction.options.getInteger('追加傷害') ?? null,
         character_ap:       interaction.options.getInteger('防禦貫穿')   ?? null,
         character_dp:       interaction.options.getInteger('破壞力')     ?? null,
-        character_crit_def: interaction.options.getInteger('爆擊抗性')   ?? null,
+        character_crit_def: interaction.options.getInteger('爆擊抵抗')   ?? null,
       };
 
       // ── 寫入資料庫（同名更新 / 新名新增，並設為當前主角）──────
@@ -144,7 +144,7 @@ module.exports = {
               characterData.character_adDamage !== null ? `**追加傷害：** ${characterData.character_adDamage}` : null,
               characterData.character_ap       !== null ? `**防禦貫穿：** ${characterData.character_ap}`         : null,
               characterData.character_dp       !== null ? `**破壞力：** ${characterData.character_dp}`           : null,
-              characterData.character_crit_def !== null ? `**爆擊抗性：** ${characterData.character_crit_def}`   : null,
+              characterData.character_crit_def !== null ? `**爆擊抵抗：** ${characterData.character_crit_def}`   : null,
             ]
               .filter(Boolean)
               .join('\n') || '（未填寫）',

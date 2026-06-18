@@ -310,13 +310,13 @@ module.exports = {
       `📈 平均傷害：**${avgDamagePct}%**`,
     ].join('\n');
 
-    // ── Step 8：若玩家有填爆擊抗性，檢查是否會被 Boss 爆打 ────────
+    // ── Step 8：若玩家有填爆擊抵抗，檢查是否會被 Boss 爆打 ────────
     let critDefWarning = null;
     if (compareUser.character_crit_def != null) {
       const critDefGap = battle.boss_crit - compareUser.character_crit_def;
       if (critDefGap >= 50) {
         critDefWarning = [
-          `我的爆擊抗性：**${compareUser.character_crit_def}**`,
+          `我的爆擊抵抗：**${compareUser.character_crit_def}**`,
           `Boss 爆擊：**${battle.boss_crit}**`,
           `差距：**-${critDefGap}**`,
           `🔴 Boss 爆擊遠超你的抗性，**可能會打得很辛苦！**`,
@@ -361,10 +361,10 @@ module.exports = {
       }
     );
 
-    // 有爆擊抗性警告才加入此欄位
+    // 有爆擊抵抗警告才加入此欄位
     if (critDefWarning) {
       resultEmbed.addFields({
-        name: '🚨 爆擊抗性警告',
+        name: '🚨 爆擊抵抗警告',
         value: critDefWarning,
       });
     }
