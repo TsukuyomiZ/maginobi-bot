@@ -18,6 +18,9 @@ dist/
 build/
 .cache/
 
+# OCR debug output
+debug/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,5 +1,10 @@
 const { createWorker } = require('tesseract.js');
 const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
+
+// 設定環境變數 OCR_DEBUG=1 時，會把前處理後的圖與原始辨識文字存到 debug/
+const DEBUG = !!process.env.OCR_DEBUG;
 
 /**
  * Stat OCR Service
@@ -22,14 +27,15 @@ async function getWorker() {
  * 要抓取的欄位與對應關鍵字。
  * 順序很重要：較長/較特定的關鍵字要排在前面，避免被子字串先吃掉
  * （例如「追加傷害」必須比「攻擊力」「傷害」先比對；「爆擊抗性」「爆擊傷害」
- *  必須比「爆擊」先比對）。
+ *  必須比「爆擊」先比對）。注意「防禦力」是「防禦力貫穿」的子字串，
+ *  含「貫穿」的行已在解析迴圈中排除，不會被防禦力先吃掉。
  */
 const FIELD_PATTERNS = [
   { field: 'character_adDamage', keywords: ['追加傷害', '追加伤害', '追加攻擊力', '追加攻擊', '追加'] },
   { field: 'character_crit_def', keywords: ['爆擊抗性', '暴擊抗性', '爆擊抵抗', '暴擊抵抗'] },
   { field: 'character_atk',      keywords: ['攻擊力', '攻擊', '魔法攻擊'] },
   { field: 'character_def',      keywords: ['防禦力', '防禦', '防御力', '防御'] },
-  { field: 'character_ap',       keywords: ['防禦貫穿', '防御貫穿', '貫穿'] },
+  { field: 'character_ap',       keywords: ['防禦力貫穿', '防御力貫穿', '防禦貫穿', '防御貫穿', '貫穿'] },
   { field: 'character_crit',     keywords: ['爆擊', '暴擊'] },
   { field: 'character_balance',  keywords: ['平衡'] },
   { field: 'character_dp',       keywords: ['破壞力', '破坏力', '破壞', '破坏'] },
@@ -52,8 +58,10 @@ async function preprocessImage(buffer) {
     const img = sharp(buffer, { failOn: 'none' });
     const meta = await img.metadata();
 
-    // 小圖放大有助於小字辨識；已很大的圖則維持原尺寸
-    const targetWidth = meta.width && meta.width < 1200 ? meta.width * 2 : meta.width;
+    // 小圖放大有助於小字辨識：越小放越多，已夠大的圖則維持原尺寸
+    const w = meta.width || 0;
+    const factor = w === 0 ? 1 : w < 800 ? 3 : w < 1600 ? 2 : 1;
+    const targetWidth = w ? w * factor : undefined;
 
     return await img
       .resize({ width: targetWidth, kernel: 'lanczos3' }) // 放大、平滑
@@ -104,6 +112,20 @@ async function recognizeStats(imageUrl) {
   const { data } = await worker.recognize(processed);
   const rawText = data.text || '';
 
+  // 除錯：存下前處理後的圖與原始辨識文字，方便比對 tesseract 實際讀到什麼
+  if (DEBUG) {
+    try {
+      const dir = path.join(process.cwd(), 'debug');
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      fs.writeFileSync(path.join(dir, `ocr-${stamp}.png`), processed);
+      fs.writeFileSync(path.join(dir, `ocr-${stamp}.txt`), rawText);
+      console.log(`[statOcr] DEBUG 已輸出至 debug/ocr-${stamp}.{png,txt}\n--- 原始辨識文字 ---\n${rawText}\n--------------------`);
+    } catch (err) {
+      console.warn('[statOcr] DEBUG 輸出失敗：', err.message);
+    }
+  }
+
   const stats = {
     character_atk: null,
     character_def: null,
@@ -127,6 +149,10 @@ async function recognizeStats(imageUrl) {
 
       // 爆擊欄位特別處理：若該行是「爆擊傷害」之類則略過，留給其他欄位
       if (field === 'character_crit' && isExcluded) continue;
+
+      // 防禦力欄位特別處理：「防禦力」是「防禦力貫穿」的子字串，
+      // 含「貫穿」的行屬於防禦貫穿，不可被防禦力先吃掉
+      if (field === 'character_def' && line.includes('貫穿')) continue;
 
       const matched = keywords.some((kw) => line.includes(kw));
       if (matched) {
