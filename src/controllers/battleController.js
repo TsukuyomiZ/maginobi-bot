@@ -30,6 +30,20 @@ const battleController = {
       throw error;
     }
   },
+
+  /**
+   * 取得「最新加入」的關卡（依 createdAt 由新到舊取第一筆）。
+   * 通常對應當期最新、最硬的內容，用於註冊/更新後的進度提示。
+   * @param {boolean} isSTD - true 取最新 STD 關卡，false 取最新一般關卡
+   */
+  async getLatestBattle(isSTD = false) {
+    try {
+      return await BattleInfo.findOne({ isSTD }).sort({ createdAt: -1 });
+    } catch (error) {
+      console.error('[BattleController] getLatestBattle error:', error);
+      throw error;
+    }
+  },
 };
 
 module.exports = battleController;

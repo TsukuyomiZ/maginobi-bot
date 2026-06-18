@@ -12,6 +12,7 @@ const {
 const userController = require('../../controllers/userController');
 const { recognizeStats } = require('../../services/statOcr');
 const { getSampleImage } = require('../../utils/sampleImage');
+const { buildLatestProgressFields, buildShowcaseEmbed } = require('../../utils/latestProgress');
 
 // 必填 / 選填欄位（label 用於顯示與 modal）
 const REQUIRED_FIELDS = [
@@ -291,7 +292,59 @@ module.exports = {
           .setFooter({ text: `Discord：${interaction.user.username}｜已設為當前主角｜輸入 /help 看看還能做什麼` })
           .setTimestamp();
 
-        await btn.update({ embeds: [successEmbed], components: [] });
+        // ── 附上「最新副本 / 最新 STD 副本」進度（查無資料則自動略過）──
+        const savedCharacter = {
+          userName,
+          character_atk: draft.character_atk,
+          character_def: draft.character_def,
+          character_crit: draft.character_crit,
+          character_balance: draft.character_balance,
+          character_adDamage: draft.character_adDamage,
+          character_ap: draft.character_ap,
+          character_dp: draft.character_dp,
+          character_crit_def: draft.character_crit_def,
+        };
+        const progressFields = await buildLatestProgressFields(savedCharacter);
+        if (progressFields.length) {
+          successEmbed.addFields(
+            { name: '​', value: '**📊 距離當期最新內容的進度**' },
+            ...progressFields
+          );
+        }
+
+        // 成功訊息保留私人可見，並提供「公開分享」按鈕讓玩家自行決定是否貼出
+        const shareRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('reg_share')
+            .setLabel('📢 公開分享進度')
+            .setStyle(ButtonStyle.Primary)
+        );
+        await btn.update({ embeds: [successEmbed], components: [shareRow] });
+
+        // 等待玩家是否按下公開分享（逾時則靜默移除按鈕）
+        const shareBtn = await reply
+          .awaitMessageComponent({
+            filter: (i) => isOwner(i) && i.customId === 'reg_share',
+            time: 120_000,
+          })
+          .catch(() => null);
+
+        if (shareBtn) {
+          // 收掉按鈕並公開貼出展示卡
+          await shareBtn.update({ embeds: [successEmbed], components: [] });
+          await interaction.followUp({
+            embeds: [
+              buildShowcaseEmbed({
+                user: interaction.user,
+                character: savedCharacter,
+                isNew: regResult.isNew,
+                progressFields,
+              }),
+            ],
+          });
+        } else {
+          await interaction.editReply({ components: [] }).catch(() => {});
+        }
         return;
       }
 

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const userController = require('../../controllers/userController');
+const { buildLatestProgressFields, buildShowcaseEmbed } = require('../../utils/latestProgress');
 
 /**
  * /register command - Register or update Mabinogi character stats
@@ -73,6 +74,12 @@ module.exports = {
         .setDescription('（選填）暴擊抵抗')
         .setRequired(false)
         .setMinValue(0)
+    )
+    .addBooleanOption((option) =>
+      option
+        .setName('公開')
+        .setDescription('（選填）是否公開分享這次的屬性與最新副本進度給其他人看，預設不公開')
+        .setRequired(false)
     ),
 
   async execute(interaction) {
@@ -154,7 +161,30 @@ module.exports = {
         .setFooter({ text: `Discord：${interaction.user.username}｜已設為當前主角` })
         .setTimestamp();
 
+      // ── 附上「最新副本 / 最新 STD 副本」進度（查無資料則自動略過）──
+      const progressFields = await buildLatestProgressFields(characterData);
+      if (progressFields.length) {
+        embed.addFields(
+          { name: '​', value: '**📊 距離當期最新內容的進度**' },
+          ...progressFields
+        );
+      }
+
       await interaction.editReply({ embeds: [embed] });
+
+      // ── 玩家選擇公開 → 額外公開貼出展示卡讓大家看得到 ──────────
+      if (interaction.options.getBoolean('公開')) {
+        await interaction.followUp({
+          embeds: [
+            buildShowcaseEmbed({
+              user: interaction.user,
+              character: characterData,
+              isNew: result.isNew,
+              progressFields,
+            }),
+          ],
+        });
+      }
     } catch (error) {
       console.error('[Command:register] Error:', error);
       await interaction.editReply('❌ 註冊失敗，請稍後再試。');

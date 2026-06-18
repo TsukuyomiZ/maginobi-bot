@@ -7,11 +7,11 @@ const {
 } = require('discord.js');
 const userController = require('../../controllers/userController');
 const battleController = require('../../controllers/battleController');
-
-// 滿爆條件：character_crit - boss_crit >= 50
-const CRIT_THRESHOLD = 50;
-// 滿平條件：character_balance - boss_balance >= 100
-const BALANCE_THRESHOLD = 100;
+const {
+  CRIT_THRESHOLD,
+  BALANCE_THRESHOLD,
+  compareCharacterToBattle,
+} = require('../../utils/battleCompare');
 
 /**
  * /battle_compare command
@@ -167,61 +167,12 @@ module.exports = {
       });
     }
 
-    // ── Step 6：先用 req 欄位檢查能否進入關卡 ──────────────────
-    const isSTD = battle.isSTD === true;
-
-    // 如果為 STD 關卡，調整使用者的比對數值
-    const compareUser = {
-      userName: user.userName,
-      character_atk: isSTD ? user.character_atk - 709 : user.character_atk,
-      character_def: isSTD ? user.character_def - 300 : user.character_def,
-      character_crit: isSTD ? user.character_crit - 1 : user.character_crit,
-      character_balance: user.character_balance,
-      character_adDamage: user.character_adDamage,
-      character_ap: user.character_ap,
-      character_dp: (isSTD && user.character_dp !== null) ? user.character_dp - 500 : user.character_dp,
-      character_crit_def: user.character_crit_def,
-    };
-
-    const reqFields = [
-      { key: 'atk', name: '攻擊力', userField: 'character_atk', reqField: 'req_atk' },
-      { key: 'def', name: '防禦力', userField: 'character_def', reqField: 'req_def' },
-      { key: 'crit', name: '暴擊', userField: 'character_crit', reqField: 'req_character_crit' },
-      { key: 'balance', name: '平衡', userField: 'character_balance', reqField: 'req_balance' },
-      { key: 'adDamage', name: '追加傷害', userField: 'character_adDamage', reqField: 'req_adDamage' },
-      { key: 'ap', name: '防禦貫穿', userField: 'character_ap', reqField: 'req_ap' },
-      { key: 'dp', name: '破壞力', userField: 'character_dp', reqField: 'req_dp' },
-    ];
-
-    const missingFields = [];
-    const comparedFields = [];
-    let hasFailed = false;
-
-    for (const field of reqFields) {
-      const reqVal = battle[field.reqField];
-      // 只有當關卡有設定該項需求且大於 0 時才需要比對
-      if (reqVal !== null && reqVal !== undefined && reqVal > 0) {
-        const userVal = compareUser[field.userField];
-        if (userVal === null || userVal === undefined) {
-          missingFields.push(field);
-        } else {
-          const passed = userVal >= reqVal;
-          if (!passed) {
-            hasFailed = true;
-          }
-          comparedFields.push({
-            field,
-            userVal,
-            reqVal,
-            passed,
-            diff: userVal - reqVal
-          });
-        }
-      }
-    }
+    // ── Step 6：用共用 helper 比對（含 STD 懲罰、req 門檻、暴擊/平衡）──
+    const result = compareCharacterToBattle(user, battle);
+    const { isSTD, compareUser, missingFields, comparedFields } = result;
 
     // 任一屬性低於關卡需求 → 無法進入
-    if (hasFailed) {
+    if (!result.canEnter) {
       const blockedEmbed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle(`🚫 ${battle.battle_name}（Lv.${selectedLevel}）`)
@@ -265,64 +216,50 @@ module.exports = {
       return interaction.followUp({ embeds: [blockedEmbed] });
     }
 
-    // ── Step 7：計算有效暴擊率 & 平衡傷害 ───────────────────────
-    const critDiff    = compareUser.character_crit    - battle.boss_crit_def;
-    const balanceDiff = compareUser.character_balance - battle.boss_balance_def;
-
-    const critPassed    = critDiff    >= CRIT_THRESHOLD;
-    const balancePassed = balanceDiff >= BALANCE_THRESHOLD;
-
-    // 有效暴擊率：上限 50%，下限 3%
-    const effectiveCritPct = Math.min(50, Math.max(3, critDiff));
-
-    // 有效平衡值：上限 100
-    const effectiveBalance = Math.min(100, balanceDiff);
-    // 傷害範圍：effectiveBalance% ~ 100%，平均 = (100 + effectiveBalance) / 2
-    const avgDamagePct = ((100 + effectiveBalance) / 2).toFixed(1);
+    // ── Step 7：取出 helper 已算好的暴擊 / 平衡結果 ──────────────
+    const { crit, balance } = result;
+    const critPassed = crit.passed;
+    const balancePassed = balance.passed;
 
     // ── 暴擊欄位文字 ─────────────────────────────────────────────
     const critLines = [
       `我的暴擊：**${compareUser.character_crit}**${isSTD ? ' *(已扣除 STD 懲罰 1 點)*' : ''}`,
-      `Boss 暴擊抵抗：**${battle.boss_crit_def}**`,
-      `差距：**${critDiff >= 0 ? '+' : ''}${critDiff}**`,
+      `Boss 暴擊抵抗：**${crit.bossDef}**`,
+      `差距：**${crit.diff >= 0 ? '+' : ''}${crit.diff}**`,
       critPassed
         ? `✅ 恭喜，關卡已滿爆！`
-        : `⚠️ 暴擊還差 **${CRIT_THRESHOLD - critDiff}** 點才滿爆`,
+        : `⚠️ 暴擊還差 **${crit.remaining}** 點才滿爆`,
       ``,
-      `🎲 有效暴擊率：**${effectiveCritPct}%**`,
+      `🎲 有效暴擊率：**${crit.effectivePct}%**`,
       critPassed
         ? `（暴擊觸發上限，固定 50%）`
-        : `（滿爆需 50%，目前少 ${50 - effectiveCritPct}%）`,
+        : `（滿爆需 50%，目前少 ${50 - crit.effectivePct}%）`,
     ].join('\n');
 
     // ── 平衡欄位文字 ─────────────────────────────────────────────
     const balanceLines = [
       `我的平衡：**${compareUser.character_balance}**`,
-      `Boss 平衡抵抗：**${battle.boss_balance_def}**`,
-      `差距：**${balanceDiff >= 0 ? '+' : ''}${balanceDiff}**`,
+      `Boss 平衡抵抗：**${balance.bossDef}**`,
+      `差距：**${balance.diff >= 0 ? '+' : ''}${balance.diff}**`,
       balancePassed
         ? `✅ 恭喜，關卡已滿平！`
-        : `⚠️ 平衡還差 **${BALANCE_THRESHOLD - balanceDiff}** 點才滿平`,
+        : `⚠️ 平衡還差 **${balance.remaining}** 點才滿平`,
       ``,
       balancePassed
         ? `📊 傷害固定為應有值的 **100%**`
-        : `📊 傷害範圍：**${effectiveBalance}% ~ 100%**`,
-      `📈 平均傷害：**${avgDamagePct}%**`,
+        : `📊 傷害範圍：**${balance.effective}% ~ 100%**`,
+      `📈 平均傷害：**${balance.avgDamagePct}%**`,
     ].join('\n');
 
     // ── Step 8：若玩家有填暴擊抵抗，檢查是否會被 Boss 爆打 ────────
-    let critDefWarning = null;
-    if (compareUser.character_crit_def != null) {
-      const critDefGap = battle.boss_crit - compareUser.character_crit_def;
-      if (critDefGap >= 50) {
-        critDefWarning = [
-          `我的暴擊抵抗：**${compareUser.character_crit_def}**`,
-          `Boss 暴擊：**${battle.boss_crit}**`,
-          `差距：**-${critDefGap}**`,
+    const critDefWarning = result.critDefWarning
+      ? [
+          `我的暴擊抵抗：**${result.critDefWarning.mine}**`,
+          `Boss 暴擊：**${result.critDefWarning.bossCrit}**`,
+          `差距：**-${result.critDefWarning.gap}**`,
           `🔴 Boss 暴擊遠超你的抗性，**可能會打得很辛苦！**`,
-        ].join('\n');
-      }
-    }
+        ].join('\n')
+      : null;
 
     // 顏色優先級：有警告 → 橘色 / 全滿 → 綠色 / 未滿 → 黃色
     const embedColor = critDefWarning
