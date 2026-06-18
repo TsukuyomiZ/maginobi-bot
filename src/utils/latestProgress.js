@@ -2,14 +2,14 @@ const { EmbedBuilder } = require('discord.js');
 const battleController = require('../controllers/battleController');
 const { compareCharacterToBattle, buildProgressField } = require('./battleCompare');
 
-// 公開展示卡用的欄位定義
-const REQUIRED_LABELS = [
+// 公開展示卡用的欄位定義（基本 / 進階兩組）
+const BASIC_LABELS = [
   ['character_atk', '攻擊力'],
   ['character_def', '防禦力'],
   ['character_crit', '暴擊'],
   ['character_balance', '平衡'],
 ];
-const OPTIONAL_LABELS = [
+const ADVANCED_LABELS = [
   ['character_adDamage', '追加傷害'],
   ['character_ap', '防禦貫穿'],
   ['character_dp', '破壞力'],
@@ -64,14 +64,14 @@ function buildShowcaseEmbed({ user, character, isNew, progressFields }) {
     .setTitle(`📢 ${character.userName} ${isNew ? '新角色登場！' : '屬性更新！'}`)
     .addFields(
       {
-        name: '⚔️ 必填屬性',
-        value: REQUIRED_LABELS.map(([f, l]) => `**${l}：** ${character[f]}`).join('\n'),
+        name: '⚔️ 基本屬性',
+        value: BASIC_LABELS.map(([f, l]) => `**${l}：** ${character[f]}`).join('\n'),
         inline: true,
       },
       {
-        name: '✨ 選填屬性',
+        name: '✨ 進階屬性',
         value:
-          OPTIONAL_LABELS.filter(([f]) => character[f] != null)
+          ADVANCED_LABELS.filter(([f]) => character[f] != null)
             .map(([f, l]) => `**${l}：** ${character[f]}`)
             .join('\n') || '（未填寫）',
         inline: true,

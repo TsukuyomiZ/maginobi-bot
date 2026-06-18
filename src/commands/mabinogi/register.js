@@ -13,20 +13,21 @@ const userController = require('../../controllers/userController');
 const { recognizeStats } = require('../../services/statOcr');
 const { buildLatestProgressFields, buildShowcaseEmbed } = require('../../utils/latestProgress');
 
-// 必填 / 選填欄位（label 用於顯示與 modal）
-const REQUIRED_FIELDS = [
+// 所有屬性皆為必填。分成兩組純粹是為了符合 Discord modal「最多 5 個輸入框」的限制，
+// 兩個修改按鈕各對應一組（基本 / 進階），與「必填 / 選填」無關。
+const GROUP_BASIC = [
   { field: 'character_atk', label: '攻擊力' },
   { field: 'character_def', label: '防禦力' },
   { field: 'character_crit', label: '暴擊' },
   { field: 'character_balance', label: '平衡' },
 ];
-const OPTIONAL_FIELDS = [
+const GROUP_ADVANCED = [
   { field: 'character_adDamage', label: '追加傷害' },
   { field: 'character_ap', label: '防禦貫穿' },
   { field: 'character_dp', label: '破壞力' },
   { field: 'character_crit_def', label: '暴擊抵抗' },
 ];
-const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
+const ALL_FIELDS = [...GROUP_BASIC, ...GROUP_ADVANCED];
 
 // 將字串解析為整數（留空 / 非數字 → null）
 function parseStat(str) {
@@ -37,8 +38,9 @@ function parseStat(str) {
   return Number.isFinite(n) ? n : null;
 }
 
-function isMissingRequired(draft) {
-  return REQUIRED_FIELDS.some((f) => draft[f.field] == null);
+// 是否還有屬性未填（全部屬性皆為必填）
+function isMissing(draft) {
+  return ALL_FIELDS.some((f) => draft[f.field] == null);
 }
 
 // 渲染辨識 / 待填結果 embed（manual = OCR 辨識失敗，改由使用者手動填寫）
@@ -51,7 +53,7 @@ function buildResultEmbed(draft, userName, manual = false) {
       : `⚠️ **${label}**：（未辨識，請手動填寫）`;
   };
 
-  const missing = isMissingRequired(draft);
+  const missing = isMissing(draft);
 
   return new EmbedBuilder()
     .setColor(missing ? 0xFEE75C : 0x5865F2)
@@ -59,27 +61,27 @@ function buildResultEmbed(draft, userName, manual = false) {
     .setDescription(
       manual
         ? `角色名稱：**${userName}**\n` +
-          `自動辨識失敗（圖片可能不夠清晰）。請點下方按鈕**手動填寫**屬性，補齊必填後即可註冊。`
+          `自動辨識失敗（圖片可能不夠清晰）。請點下方按鈕**手動填寫**屬性，全部補齊後即可註冊。`
         : `角色名稱：**${userName}**\n` +
           `以下為自動辨識的數值，**請務必檢查是否正確**，有錯誤點下方按鈕修改。`
     )
     .addFields(
-      { name: '⚔️ 必填屬性', value: REQUIRED_FIELDS.map(renderLine).join('\n') },
-      { name: '✨ 選填屬性', value: OPTIONAL_FIELDS.map(renderLine).join('\n') }
+      { name: '⚔️ 基本屬性', value: GROUP_BASIC.map(renderLine).join('\n') },
+      { name: '✨ 進階屬性', value: GROUP_ADVANCED.map(renderLine).join('\n') }
     )
     .setFooter({
       text: missing
-        ? '⚠️ 必填屬性尚未齊全，請先「修改必填」補齊才能註冊'
+        ? '⚠️ 還有屬性未填，請用「修改基本 / 修改進階」補齊才能註冊'
         : '確認無誤後請按「✅ 確認註冊」',
     });
 }
 
-// 依目前 draft 狀態建立按鈕列（必填未齊全時禁用「確認」）
+// 依目前 draft 狀態建立按鈕列（屬性未填齊時禁用「確認」）
 function buildButtons(draft) {
-  const missing = isMissingRequired(draft);
+  const missing = isMissing(draft);
   const editRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('reg_edit_req').setLabel('✏️ 修改必填').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('reg_edit_opt').setLabel('✏️ 修改選填').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('reg_edit_basic').setLabel('✏️ 修改基本屬性').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('reg_edit_adv').setLabel('✏️ 修改進階屬性').setStyle(ButtonStyle.Secondary)
   );
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -92,16 +94,16 @@ function buildButtons(draft) {
   return [editRow, actionRow];
 }
 
-// 建立修改用的 modal
-function buildEditModal(customId, fields, draft, required) {
+// 建立修改用的 modal（所有屬性皆為必填）
+function buildEditModal(customId, fields, draft) {
   const modal = new ModalBuilder().setCustomId(customId).setTitle('修改屬性數值');
   for (const { field, label } of fields) {
     const input = new TextInputBuilder()
       .setCustomId(field)
       .setLabel(label)
       .setStyle(TextInputStyle.Short)
-      .setRequired(required)
-      .setPlaceholder('輸入數字' + (required ? '' : '（留空表示無此屬性）'));
+      .setRequired(true)
+      .setPlaceholder('輸入數字（沒有此屬性請填 0）');
     if (draft[field] != null) input.setValue(String(draft[field]));
     modal.addComponents(new ActionRowBuilder().addComponents(input));
   }
@@ -110,11 +112,10 @@ function buildEditModal(customId, fields, draft, required) {
 
 /**
  * /register command
- * 註冊或更新瑪奇角色屬性，支援兩種方式：
- *   1. 附上角色屬性截圖 → 本地 OCR 自動辨識 → 使用者校正 → 確認後寫入。
- *   2. 不附截圖、僅填角色名稱 → 直接進入手動填寫流程。
- * 兩者皆有「修改必填 / 修改選填」可手動校正，全程 ephemeral，僅本人可見。
- * 用相同角色名稱再執行一次即為「更新」；本次未填的選填屬性會沿用既有值。
+ * 註冊或更新瑪奇角色屬性：附上角色屬性截圖 → 本地 OCR 自動辨識 → 使用者校正 → 確認後寫入。
+ * 所有屬性皆為必填；可用「修改基本 / 修改進階」按鈕手動校正，全程 ephemeral，僅本人可見。
+ * 辨識失敗時會改為空白草稿讓使用者直接手動填寫。
+ * 用相同角色名稱再執行一次即為「更新」。
  */
 module.exports = {
   data: new SlashCommandBuilder()
@@ -199,10 +200,10 @@ module.exports = {
 
       // ── 確認註冊 ────────────────────────────────────────────
       if (btn.customId === 'reg_confirm') {
-        if (isMissingRequired(draft)) {
+        if (isMissing(draft)) {
           // 理論上按鈕已禁用，保險起見再擋一次
           await btn.reply({
-            content: '⚠️ 必填屬性尚未齊全，請先「修改必填」補齊。',
+            content: '⚠️ 還有屬性未填，請先用「修改基本 / 修改進階」補齊。',
             flags: MessageFlags.Ephemeral,
           });
           continue;
@@ -248,7 +249,7 @@ module.exports = {
           return;
         }
 
-        // 以資料庫實際存下的值（含這次沒填、沿用既有的選填屬性）作為顯示來源
+        // 以資料庫實際存下的值作為顯示來源
         const c = regResult.character;
         const savedCharacter = {
           userName: c.userName,
@@ -268,16 +269,13 @@ module.exports = {
           .setDescription(`角色名稱：**${userName}**`)
           .addFields(
             {
-              name: '⚔️ 必填屬性',
-              value: REQUIRED_FIELDS.map((f) => `**${f.label}：** ${savedCharacter[f.field]}`).join('\n'),
+              name: '⚔️ 基本屬性',
+              value: GROUP_BASIC.map((f) => `**${f.label}：** ${savedCharacter[f.field]}`).join('\n'),
               inline: true,
             },
             {
-              name: '✨ 選填屬性',
-              value:
-                OPTIONAL_FIELDS.filter((f) => savedCharacter[f.field] != null)
-                  .map((f) => `**${f.label}：** ${savedCharacter[f.field]}`)
-                  .join('\n') || '（未填寫）',
+              name: '✨ 進階屬性',
+              value: GROUP_ADVANCED.map((f) => `**${f.label}：** ${savedCharacter[f.field]}`).join('\n'),
               inline: true,
             }
           )
@@ -329,12 +327,12 @@ module.exports = {
         return;
       }
 
-      // ── 開啟修改 modal ─────────────────────────────────────
-      const isReq = btn.customId === 'reg_edit_req';
-      const fields = isReq ? REQUIRED_FIELDS : OPTIONAL_FIELDS;
-      const modalId = isReq ? 'reg_modal_req' : 'reg_modal_opt';
+      // ── 開啟修改 modal（基本 / 進階兩組，皆為必填）──────────────
+      const isBasic = btn.customId === 'reg_edit_basic';
+      const fields = isBasic ? GROUP_BASIC : GROUP_ADVANCED;
+      const modalId = isBasic ? 'reg_modal_basic' : 'reg_modal_adv';
 
-      await btn.showModal(buildEditModal(modalId, fields, draft, isReq));
+      await btn.showModal(buildEditModal(modalId, fields, draft));
 
       const modalSubmit = await btn
         .awaitModalSubmit({ filter: (i) => isOwner(i) && i.customId === modalId, time: 120_000 })
