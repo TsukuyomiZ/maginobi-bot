@@ -38,7 +38,9 @@ const battleController = {
    */
   async getLatestBattle(isSTD = false) {
     try {
-      return await BattleInfo.findOne({ isSTD }).sort({ createdAt: -1 });
+      // STD：明確 isSTD=true；一般：isSTD!=true（含早期未寫入 isSTD 欄位的舊資料，視為一般）
+      const filter = isSTD ? { isSTD: true } : { isSTD: { $ne: true } };
+      return await BattleInfo.findOne(filter).sort({ createdAt: -1 });
     } catch (error) {
       console.error('[BattleController] getLatestBattle error:', error);
       throw error;
