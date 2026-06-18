@@ -11,7 +11,6 @@ const {
 } = require('discord.js');
 const userController = require('../../controllers/userController');
 const { recognizeStats } = require('../../services/statOcr');
-const { getSampleImage } = require('../../utils/sampleImage');
 const { buildLatestProgressFields, buildShowcaseEmbed } = require('../../utils/latestProgress');
 
 // 必填 / 選填欄位（label 用於顯示與 modal）
@@ -122,50 +121,18 @@ module.exports = {
     .setName('register')
     .setDescription('註冊或更新你的瑪奇角色（可上傳截圖自動辨識，或純手動輸入）')
     .addStringOption((opt) =>
-      opt.setName('角色名稱').setDescription('你的瑪奇角色名稱').setRequired(false)
+      opt.setName('角色名稱').setDescription('你的瑪奇角色名稱').setRequired(true)
     )
     .addAttachmentOption((opt) =>
       opt
         .setName('截圖')
-        .setDescription('（選填）角色屬性畫面的截圖，附上可自動辨識；留空則手動輸入')
+        .setDescription('（選填）角色屬性畫面的截圖；附上可自動辨識，留空則改為手動輸入')
         .setRequired(false)
     ),
 
   async execute(interaction) {
     const userName = interaction.options.getString('角色名稱');
     const attachment = interaction.options.getAttachment('截圖');
-
-    // 既沒附截圖也沒填角色名稱 → 顯示「該怎麼用」的教學（含示意圖）
-    if (!attachment && !userName) {
-      const tutorialEmbed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle('📷 如何註冊角色')
-        .setDescription(
-          '**方式 A｜上傳截圖自動辨識（最快）**\n' +
-          '1️⃣ 在遊戲中開啟角色的**屬性 / 角色資訊**面板\n' +
-          '2️⃣ 截取**整塊屬性數值**的畫面（像下方示意圖那樣，包含攻擊力、防禦力、暴擊、平衡…等）\n' +
-          '3️⃣ 再執行一次 `/register`，把截圖放到「**截圖**」欄位，並填上「**角色名稱**」\n\n' +
-          '**方式 B｜純手動輸入**\n' +
-          '• 執行 `/register` 只填「**角色名稱**」（不附截圖），即可進入手動填寫流程。\n\n' +
-          '💡 數字越清晰、裁切越乾淨，辨識越準確；辨識後仍可手動修正再確認。'
-        );
-
-      const sample = getSampleImage();
-      const payload = { embeds: [tutorialEmbed], flags: MessageFlags.Ephemeral };
-      if (sample) {
-        tutorialEmbed.setImage(sample.url);
-        payload.files = [sample.attachment];
-      }
-      return interaction.reply(payload);
-    }
-
-    // 有截圖但沒填角色名稱
-    if (attachment && !userName) {
-      return interaction.reply({
-        content: '❌ 請填寫「角色名稱」欄位後再送出。',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
 
     // 有附檔但不是圖片
     if (attachment && (!attachment.contentType || !attachment.contentType.startsWith('image/'))) {
