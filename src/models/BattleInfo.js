@@ -41,7 +41,7 @@ const battleInfoSchema = new mongoose.Schema(
     },
     req_character_crit: {
       type: Number,
-      default: null,        // 建議爆擊值
+      default: null,        // 建議暴擊值
     },
     req_balance: {
       type: Number,

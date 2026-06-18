@@ -16,14 +16,14 @@ const { recognizeStats } = require('../../services/statOcr');
 const REQUIRED_FIELDS = [
   { field: 'character_atk', label: '攻擊力' },
   { field: 'character_def', label: '防禦力' },
-  { field: 'character_crit', label: '爆擊' },
+  { field: 'character_crit', label: '暴擊' },
   { field: 'character_balance', label: '平衡' },
 ];
 const OPTIONAL_FIELDS = [
   { field: 'character_adDamage', label: '追加傷害' },
   { field: 'character_ap', label: '防禦貫穿' },
   { field: 'character_dp', label: '破壞力' },
-  { field: 'character_crit_def', label: '爆擊抵抗' },
+  { field: 'character_crit_def', label: '暴擊抵抗' },
 ];
 
 // 將字串解析為整數（留空 / 非數字 → null）
@@ -135,9 +135,11 @@ module.exports = {
 
     // ── 執行 OCR ──────────────────────────────────────────────
     let draft;
+    let rawText = '';
     try {
-      const { stats } = await recognizeStats(attachment.url);
-      draft = { ...stats };
+      const result = await recognizeStats(attachment.url);
+      draft = { ...result.stats };
+      rawText = result.rawText || '';
     } catch (error) {
       console.error('[register_image] OCR 失敗：', error);
       return interaction.editReply({
@@ -149,8 +151,18 @@ module.exports = {
       });
     }
 
+    // OCR_DEBUG=1 時，在結果下方顯示 tesseract 讀到的原始文字（僅本人可見），
+    // 方便排查「某欄位抓不到」是讀成亂碼還是整行漏讀。
+    const resultEmbed = buildResultEmbed(draft, userName);
+    if (process.env.OCR_DEBUG && rawText) {
+      resultEmbed.addFields({
+        name: '🐛 OCR 原文（debug）',
+        value: '```\n' + rawText.slice(0, 1000) + '\n```',
+      });
+    }
+
     const reply = await interaction.editReply({
-      embeds: [buildResultEmbed(draft, userName)],
+      embeds: [resultEmbed],
       components: buildButtons(draft),
     });
 

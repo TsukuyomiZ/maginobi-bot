@@ -32,8 +32,8 @@ module.exports = {
     )
     .addIntegerOption((option) =>
       option
-        .setName('爆擊')
-        .setDescription('爆擊')
+        .setName('暴擊')
+        .setDescription('暴擊')
         .setRequired(true)
         .setMinValue(0)
     )
@@ -69,8 +69,8 @@ module.exports = {
     )
     .addIntegerOption((option) =>
       option
-        .setName('爆擊抵抗')
-        .setDescription('（選填）爆擊抵抗')
+        .setName('暴擊抵抗')
+        .setDescription('（選填）暴擊抵抗')
         .setRequired(false)
         .setMinValue(0)
     ),
@@ -84,14 +84,14 @@ module.exports = {
         userName:           interaction.options.getString('角色名稱'),
         character_atk:      interaction.options.getInteger('攻擊力'),
         character_def:      interaction.options.getInteger('防禦力'),
-        character_crit:     interaction.options.getInteger('爆擊'),
+        character_crit:     interaction.options.getInteger('暴擊'),
         character_balance:  interaction.options.getInteger('平衡'),
 
         // ── 讀取選填參數（未填為 null）──────────────────────
         character_adDamage: interaction.options.getInteger('追加傷害') ?? null,
         character_ap:       interaction.options.getInteger('防禦貫穿')   ?? null,
         character_dp:       interaction.options.getInteger('破壞力')     ?? null,
-        character_crit_def: interaction.options.getInteger('爆擊抵抗')   ?? null,
+        character_crit_def: interaction.options.getInteger('暴擊抵抗')   ?? null,
       };
 
       // ── 寫入資料庫（同名更新 / 新名新增，並設為當前主角）──────
@@ -133,7 +133,7 @@ module.exports = {
             value: [
               `**攻擊力：** ${characterData.character_atk}`,
               `**防禦力：** ${characterData.character_def}`,
-              `**爆擊：** ${characterData.character_crit}`,
+              `**暴擊：** ${characterData.character_crit}`,
               `**平衡：** ${characterData.character_balance}`,
             ].join('\n'),
             inline: true,
@@ -144,7 +144,7 @@ module.exports = {
               characterData.character_adDamage !== null ? `**追加傷害：** ${characterData.character_adDamage}` : null,
               characterData.character_ap       !== null ? `**防禦貫穿：** ${characterData.character_ap}`         : null,
               characterData.character_dp       !== null ? `**破壞力：** ${characterData.character_dp}`           : null,
-              characterData.character_crit_def !== null ? `**爆擊抵抗：** ${characterData.character_crit_def}`   : null,
+              characterData.character_crit_def !== null ? `**暴擊抵抗：** ${characterData.character_crit_def}`   : null,
             ]
               .filter(Boolean)
               .join('\n') || '（未填寫）',

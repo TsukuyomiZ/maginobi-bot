@@ -35,7 +35,7 @@ const characterSchema = new mongoose.Schema(
     },
     character_crit: {
       type: Number,
-      required: true,         // 爆擊
+      required: true,         // 暴擊
     },
     character_balance: {
       type: Number,
@@ -57,7 +57,7 @@ const characterSchema = new mongoose.Schema(
     },
     character_crit_def: {
       type: Number,
-      default: null,          // 爆擊抵抗
+      default: null,          // 暴擊抵抗
     },
   },
   {

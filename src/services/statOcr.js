@@ -33,11 +33,11 @@ async function getWorker() {
  */
 const FIELD_PATTERNS = [
   { field: 'character_adDamage', keywords: ['追加傷害', '追加伤害', '追加攻擊力', '追加攻擊', '追加'] },
-  { field: 'character_crit_def', keywords: ['抵抗', '抗性', '爆擊抵抗', '暴擊抵抗', '爆擊抗性', '暴擊抗性'] },
+  { field: 'character_crit_def', keywords: ['抵抗', '抗性', '抵', '抗', '爆擊抵抗', '暴擊抵抗', '爆擊抗性', '暴擊抗性'] },
   { field: 'character_atk',      keywords: ['攻擊力', '攻擊', '魔法攻擊'] },
-  { field: 'character_def',      keywords: ['防禦力', '防禦', '防御力', '防御'] },
+  { field: 'character_def',      keywords: ['防禦力', '防禦', '防御力', '防御', '防'] },
   { field: 'character_ap',       keywords: ['防禦力貫穿', '防御力貫穿', '防禦貫穿', '防御貫穿', '貫穿'] },
-  { field: 'character_crit',     keywords: ['爆擊', '暴擊'] },
+  { field: 'character_crit',     keywords: ['爆擊', '暴擊', '暴', '爆'] },
   { field: 'character_balance',  keywords: ['平衡'] },
   { field: 'character_dp',       keywords: ['破壞力', '破坏力', '破壞', '破坏'] },
 ];
@@ -93,6 +93,61 @@ function extractNumber(text) {
 }
 
 /**
+ * 從 OCR 原始文字解析出各屬性數值（純函式，方便測試）。
+ * @param {string} rawText - tesseract 辨識出的文字
+ * @returns {object} { character_atk, character_def, ... }（抓不到為 null）
+ */
+function parseStats(rawText) {
+  const stats = {
+    character_atk: null,
+    character_def: null,
+    character_crit: null,
+    character_balance: null,
+    character_adDamage: null,
+    character_ap: null,
+    character_dp: null,
+    character_crit_def: null,
+  };
+
+  // 逐行解析；每個欄位只取第一個成功比對到的行
+  const lines = (rawText || '').split('\n').map((l) => l.trim()).filter(Boolean);
+
+  for (const line of lines) {
+    // tesseract 常在中文字之間插入空白（例：「暴 擊」「攻 擊 速 度」「追加 傷害」），
+    // 先移除所有空白再比對，避免多字關鍵字因空格拆開而對不上
+    const compact = line.replace(/\s+/g, '');
+
+    // 含排除字的行先跳過判斷（但「暴擊抵抗」「暴擊傷害」分別由各自關鍵字處理）
+    const isExcluded = EXCLUDE_TERMS.some((t) => compact.includes(t));
+
+    for (const { field, keywords } of FIELD_PATTERNS) {
+      if (stats[field] !== null) continue; // 已抓到就不覆蓋
+
+      // 暴擊欄位特別處理：若該行是「暴擊傷害」之類則略過，留給其他欄位
+      if (field === 'character_crit' && isExcluded) continue;
+
+      // 防禦力欄位特別處理：「防禦力」是「防禦力貫穿」的子字串，
+      // 含「貫穿」的行屬於防禦貫穿，不可被防禦力先吃掉
+      if (field === 'character_def' && compact.includes('貫穿')) continue;
+
+      // 攻擊力欄位特別處理：避免「攻擊速度」被當成攻擊力
+      if (field === 'character_atk' && compact.includes('速度')) continue;
+
+      const matched = keywords.some((kw) => compact.includes(kw));
+      if (matched) {
+        const value = extractNumber(line);
+        if (value !== null) {
+          stats[field] = value;
+        }
+        break; // 一行只對應一個欄位
+      }
+    }
+  }
+
+  return stats;
+}
+
+/**
  * 辨識圖片並解析屬性。
  * @param {string} imageUrl - Discord 附件 URL
  * @returns {Promise<{ stats: object, rawText: string }>}
@@ -131,46 +186,9 @@ async function recognizeStats(imageUrl) {
     }
   }
 
-  const stats = {
-    character_atk: null,
-    character_def: null,
-    character_crit: null,
-    character_balance: null,
-    character_adDamage: null,
-    character_ap: null,
-    character_dp: null,
-    character_crit_def: null,
-  };
-
-  // 逐行解析；每個欄位只取第一個成功比對到的行
-  const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean);
-
-  for (const line of lines) {
-    // 含排除字的行先跳過判斷（但「爆擊抵抗」「爆擊傷害」分別由各自關鍵字處理）
-    const isExcluded = EXCLUDE_TERMS.some((t) => line.includes(t));
-
-    for (const { field, keywords } of FIELD_PATTERNS) {
-      if (stats[field] !== null) continue; // 已抓到就不覆蓋
-
-      // 爆擊欄位特別處理：若該行是「爆擊傷害」之類則略過，留給其他欄位
-      if (field === 'character_crit' && isExcluded) continue;
-
-      // 防禦力欄位特別處理：「防禦力」是「防禦力貫穿」的子字串，
-      // 含「貫穿」的行屬於防禦貫穿，不可被防禦力先吃掉
-      if (field === 'character_def' && line.includes('貫穿')) continue;
-
-      const matched = keywords.some((kw) => line.includes(kw));
-      if (matched) {
-        const value = extractNumber(line);
-        if (value !== null) {
-          stats[field] = value;
-        }
-        break; // 一行只對應一個欄位
-      }
-    }
-  }
+  const stats = parseStats(rawText);
 
   return { stats, rawText };
 }
 
-module.exports = { recognizeStats };
+module.exports = { recognizeStats, parseStats };

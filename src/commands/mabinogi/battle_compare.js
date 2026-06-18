@@ -17,7 +17,7 @@ const BALANCE_THRESHOLD = 100;
  * /battle_compare command
  * Step 1 → 選等級 dropdown
  * Step 2 → 選關卡 dropdown（依等級從 battle_info 動態撈取）
- * Step 3 → 顯示爆擊 / 平衡比較結果
+ * Step 3 → 顯示暴擊 / 平衡比較結果
  */
 module.exports = {
   data: new SlashCommandBuilder()
@@ -186,7 +186,7 @@ module.exports = {
     const reqFields = [
       { key: 'atk', name: '攻擊力', userField: 'character_atk', reqField: 'req_atk' },
       { key: 'def', name: '防禦力', userField: 'character_def', reqField: 'req_def' },
-      { key: 'crit', name: '爆擊', userField: 'character_crit', reqField: 'req_character_crit' },
+      { key: 'crit', name: '暴擊', userField: 'character_crit', reqField: 'req_character_crit' },
       { key: 'balance', name: '平衡', userField: 'character_balance', reqField: 'req_balance' },
       { key: 'adDamage', name: '追加傷害', userField: 'character_adDamage', reqField: 'req_adDamage' },
       { key: 'ap', name: '防禦貫穿', userField: 'character_ap', reqField: 'req_ap' },
@@ -230,7 +230,7 @@ module.exports = {
 
       let desc = '';
       if (isSTD) {
-        desc += `💡 **此關卡為 時空扭曲 模式（比對屬性已扣除：攻擊力 -709、防禦力 -300、爆擊 -1、破壞力 -500）**\n\n`;
+        desc += `💡 **此關卡為 時空扭曲 模式（比對屬性已扣除：攻擊力 -709、防禦力 -300、暴擊 -1、破壞力 -500）**\n\n`;
       }
       if (missingFields.length > 0) {
         const missingNames = missingFields.map(f => f.name).join('、');
@@ -265,14 +265,14 @@ module.exports = {
       return interaction.followUp({ embeds: [blockedEmbed] });
     }
 
-    // ── Step 7：計算有效爆擊率 & 平衡傷害 ───────────────────────
+    // ── Step 7：計算有效暴擊率 & 平衡傷害 ───────────────────────
     const critDiff    = compareUser.character_crit    - battle.boss_crit_def;
     const balanceDiff = compareUser.character_balance - battle.boss_balance_def;
 
     const critPassed    = critDiff    >= CRIT_THRESHOLD;
     const balancePassed = balanceDiff >= BALANCE_THRESHOLD;
 
-    // 有效爆擊率：上限 50%，下限 3%
+    // 有效暴擊率：上限 50%，下限 3%
     const effectiveCritPct = Math.min(50, Math.max(3, critDiff));
 
     // 有效平衡值：上限 100
@@ -280,18 +280,18 @@ module.exports = {
     // 傷害範圍：effectiveBalance% ~ 100%，平均 = (100 + effectiveBalance) / 2
     const avgDamagePct = ((100 + effectiveBalance) / 2).toFixed(1);
 
-    // ── 爆擊欄位文字 ─────────────────────────────────────────────
+    // ── 暴擊欄位文字 ─────────────────────────────────────────────
     const critLines = [
-      `我的爆擊：**${compareUser.character_crit}**${isSTD ? ' *(已扣除 STD 懲罰 1 點)*' : ''}`,
-      `Boss 爆擊抵抗：**${battle.boss_crit_def}**`,
+      `我的暴擊：**${compareUser.character_crit}**${isSTD ? ' *(已扣除 STD 懲罰 1 點)*' : ''}`,
+      `Boss 暴擊抵抗：**${battle.boss_crit_def}**`,
       `差距：**${critDiff >= 0 ? '+' : ''}${critDiff}**`,
       critPassed
         ? `✅ 恭喜，關卡已滿爆！`
-        : `⚠️ 爆擊還差 **${CRIT_THRESHOLD - critDiff}** 點才滿爆`,
+        : `⚠️ 暴擊還差 **${CRIT_THRESHOLD - critDiff}** 點才滿爆`,
       ``,
-      `🎲 有效爆擊率：**${effectiveCritPct}%**`,
+      `🎲 有效暴擊率：**${effectiveCritPct}%**`,
       critPassed
-        ? `（爆擊觸發上限，固定 50%）`
+        ? `（暴擊觸發上限，固定 50%）`
         : `（滿爆需 50%，目前少 ${50 - effectiveCritPct}%）`,
     ].join('\n');
 
@@ -310,16 +310,16 @@ module.exports = {
       `📈 平均傷害：**${avgDamagePct}%**`,
     ].join('\n');
 
-    // ── Step 8：若玩家有填爆擊抵抗，檢查是否會被 Boss 爆打 ────────
+    // ── Step 8：若玩家有填暴擊抵抗，檢查是否會被 Boss 爆打 ────────
     let critDefWarning = null;
     if (compareUser.character_crit_def != null) {
       const critDefGap = battle.boss_crit - compareUser.character_crit_def;
       if (critDefGap >= 50) {
         critDefWarning = [
-          `我的爆擊抵抗：**${compareUser.character_crit_def}**`,
-          `Boss 爆擊：**${battle.boss_crit}**`,
+          `我的暴擊抵抗：**${compareUser.character_crit_def}**`,
+          `Boss 暴擊：**${battle.boss_crit}**`,
           `差距：**-${critDefGap}**`,
-          `🔴 Boss 爆擊遠超你的抗性，**可能會打得很辛苦！**`,
+          `🔴 Boss 暴擊遠超你的抗性，**可能會打得很辛苦！**`,
         ].join('\n');
       }
     }
@@ -337,7 +337,7 @@ module.exports = {
 
     let resultDesc = '';
     if (isSTD) {
-      resultDesc += `💡 **此關卡為 時空扭曲 模式（比對屬性已扣除：攻擊力 -709、防禦力 -300、爆擊 -1、破壞力 -500）**\n\n`;
+      resultDesc += `💡 **此關卡為 時空扭曲 模式（比對屬性已扣除：攻擊力 -709、防禦力 -300、暴擊 -1、破壞力 -500）**\n\n`;
     }
     if (missingFields.length > 0) {
       const missingNames = missingFields.map(f => f.name).join('、');
@@ -350,7 +350,7 @@ module.exports = {
 
     resultEmbed.addFields(
       {
-        name: '🎯 爆擊',
+        name: '🎯 暴擊',
         value: critLines,
         inline: true,
       },
@@ -361,10 +361,10 @@ module.exports = {
       }
     );
 
-    // 有爆擊抵抗警告才加入此欄位
+    // 有暴擊抵抗警告才加入此欄位
     if (critDefWarning) {
       resultEmbed.addFields({
-        name: '🚨 爆擊抵抗警告',
+        name: '🚨 暴擊抵抗警告',
         value: critDefWarning,
       });
     }
