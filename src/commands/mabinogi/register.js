@@ -11,7 +11,11 @@ const {
 } = require('discord.js');
 const userController = require('../../controllers/userController');
 const { recognizeStats } = require('../../services/statOcr');
-const { buildLatestProgressFields, buildShowcaseEmbed } = require('../../utils/latestProgress');
+const {
+  buildLatestProgressFields,
+  buildAllBattlesProgressFields,
+  buildShowcaseEmbed,
+} = require('../../utils/latestProgress');
 
 // 所有屬性皆為必填。分成兩組純粹是為了符合 Discord modal「最多 5 個輸入框」的限制，
 // 兩個修改按鈕各對應一組（基本 / 進階），與「必填 / 選填」無關。
@@ -288,6 +292,15 @@ module.exports = {
           successEmbed.addFields(
             { name: '​', value: '**📊 距離當期最新內容的進度**' },
             ...progressFields
+          );
+        }
+
+        // ── 再附上「全副本通關檢查」總覽，讓玩家一次看到所有副本狀態 ──
+        const allBattleFields = await buildAllBattlesProgressFields(savedCharacter);
+        if (allBattleFields.length) {
+          successEmbed.addFields(
+            { name: '​', value: '**🗺️ 全副本通關檢查**' },
+            ...allBattleFields
           );
         }
 

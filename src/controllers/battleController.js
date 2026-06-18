@@ -19,6 +19,18 @@ const battleController = {
   },
 
   /**
+   * 取得所有關卡（依等級 → 一般/STD → 名稱排序），用於註冊後的「全副本通關檢查」。
+   */
+  async getAllBattles() {
+    try {
+      return await BattleInfo.find().sort({ level: 1, isSTD: 1, battle_name: 1 });
+    } catch (error) {
+      console.error('[BattleController] getAllBattles error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get full battle info by MongoDB _id
    * @param {string} id - MongoDB ObjectId string
    */

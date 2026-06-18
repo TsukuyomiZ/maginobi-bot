@@ -48,6 +48,67 @@ async function buildLatestProgressFields(character) {
   return fields;
 }
 
+// 將單一副本比對結果壓成一行（用於全副本總覽）
+function summarizeBattleLine(battle, result) {
+  if (result.canEnter) {
+    const notes = [];
+    if (result.crit && !result.crit.passed) notes.push('暴擊未滿');
+    if (result.balance && !result.balance.passed) notes.push('平衡未滿');
+    const suffix = notes.length ? `（${notes.join('、')}）` : '';
+    return `✅ **${battle.battle_name}**（Lv.${battle.level}）可進入${suffix}`;
+  }
+  const shortfalls = result.comparedFields
+    .filter((c) => !c.passed)
+    .map((c) => `${c.field.name} 差${Math.abs(c.diff)}`);
+  const missing = result.missingFields.map((f) => `${f.name}未填`);
+  const parts = [...shortfalls, ...missing];
+  return `🚫 **${battle.battle_name}**（Lv.${battle.level}）${parts.join('、') || '屬性不足'}`;
+}
+
+// 將多行壓在 Discord embed field value 上限（1024 字）內，超出則整行截掉並標註
+function clampLines(lines, max = 1024) {
+  const out = [];
+  let len = 0;
+  for (const line of lines) {
+    if (len + line.length + 1 > max - 20) {
+      out.push('…（其餘略過）');
+      break;
+    }
+    out.push(line);
+    len += line.length + 1;
+  }
+  return out.join('\n');
+}
+
+/**
+ * 對「所有副本」做一次通關檢查，整理成 embed fields（一般 / STD 各一欄）。
+ * 註冊/更新成功後呼叫，讓玩家一次看到自己在每個副本的可進入狀態。
+ * 查無資料或發生錯誤都會被略過，不阻斷主流程。
+ * @param {object} character 角色屬性
+ * @returns {Promise<Array<{name,value,inline}>>}
+ */
+async function buildAllBattlesProgressFields(character) {
+  try {
+    const battles = await battleController.getAllBattles();
+    if (!battles.length) return [];
+
+    const fields = [];
+    const addGroup = (list, name) => {
+      if (!list.length) return;
+      const lines = list.map((b) => summarizeBattleLine(b, compareCharacterToBattle(character, b)));
+      fields.push({ name, value: clampLines(lines) });
+    };
+
+    addGroup(battles.filter((b) => b.isSTD !== true), '🗺️ 一般副本');
+    addGroup(battles.filter((b) => b.isSTD === true), '🌀 STD 副本');
+
+    return fields;
+  } catch (error) {
+    console.error('[latestProgress] 取得全副本進度失敗（已略過）：', error);
+    return [];
+  }
+}
+
 /**
  * 建立「公開分享」用的展示卡 embed：角色屬性 + 最新副本進度。
  * progressFields 由呼叫端先用 buildLatestProgressFields 取得後傳入，避免重複查詢。
@@ -90,4 +151,4 @@ function buildShowcaseEmbed({ user, character, isNew, progressFields }) {
     .setTimestamp();
 }
 
-module.exports = { buildLatestProgressFields, buildShowcaseEmbed };
+module.exports = { buildLatestProgressFields, buildAllBattlesProgressFields, buildShowcaseEmbed };
