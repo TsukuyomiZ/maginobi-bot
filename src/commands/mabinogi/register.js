@@ -41,7 +41,7 @@ function isMissingRequired(draft) {
   return REQUIRED_FIELDS.some((f) => draft[f.field] == null);
 }
 
-// 渲染辨識 / 待填結果 embed（manual = 純手動輸入，無截圖辨識）
+// 渲染辨識 / 待填結果 embed（manual = OCR 辨識失敗，改由使用者手動填寫）
 function buildResultEmbed(draft, userName, manual = false) {
   const renderLine = ({ field, label }) => {
     const v = draft[field];
@@ -55,11 +55,11 @@ function buildResultEmbed(draft, userName, manual = false) {
 
   return new EmbedBuilder()
     .setColor(missing ? 0xFEE75C : 0x5865F2)
-    .setTitle(manual ? '📝 手動註冊角色' : '🔍 截圖辨識結果')
+    .setTitle(manual ? '⚠️ 圖片辨識失敗，請手動填寫' : '🔍 截圖辨識結果')
     .setDescription(
       manual
         ? `角色名稱：**${userName}**\n` +
-          `請點下方按鈕填寫屬性數值，**必填屬性補齊後**即可確認註冊。`
+          `自動辨識失敗（圖片可能不夠清晰）。請點下方按鈕**手動填寫**屬性，補齊必填後即可註冊。`
         : `角色名稱：**${userName}**\n` +
           `以下為自動辨識的數值，**請務必檢查是否正確**，有錯誤點下方按鈕修改。`
     )
@@ -126,44 +126,34 @@ module.exports = {
     .addAttachmentOption((opt) =>
       opt
         .setName('截圖')
-        .setDescription('（選填）角色屬性畫面的截圖；附上可自動辨識，留空則改為手動輸入')
-        .setRequired(false)
+        .setDescription('角色屬性畫面的截圖，會自動辨識數值（辨識後仍可手動校正）')
+        .setRequired(true)
     ),
 
   async execute(interaction) {
     const userName = interaction.options.getString('角色名稱');
     const attachment = interaction.options.getAttachment('截圖');
 
-    // 有附檔但不是圖片
-    if (attachment && (!attachment.contentType || !attachment.contentType.startsWith('image/'))) {
+    // 附檔不是圖片
+    if (!attachment.contentType || !attachment.contentType.startsWith('image/')) {
       return interaction.reply({
-        content: '❌ 請上傳「圖片」檔案（png / jpg 等），或不附截圖改為手動輸入。',
+        content: '❌ 請上傳「圖片」檔案（png / jpg 等）。',
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    // OCR / 互動流程可能需要幾秒，先 defer（ephemeral）
+    // OCR 需要幾秒，先 defer（ephemeral）
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const manual = !attachment;
-
-    // ── 建立 draft：有截圖 → OCR；純手動 → 空白草稿 ───────────────
+    // ── 執行 OCR；辨識失敗則改用空白草稿，讓使用者直接手動補齊 ──────
     let draft;
-    if (attachment) {
-      try {
-        const { stats } = await recognizeStats(attachment.url);
-        draft = { ...stats };
-      } catch (error) {
-        console.error('[register] OCR 失敗：', error);
-        return interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0xED4245)
-              .setDescription('❌ 圖片辨識失敗，請改用不附截圖的 `/register` 手動輸入，或換一張更清晰的截圖。'),
-          ],
-        });
-      }
-    } else {
+    let manual = false;
+    try {
+      const { stats } = await recognizeStats(attachment.url);
+      draft = { ...stats };
+    } catch (error) {
+      console.error('[register] OCR 失敗：', error);
+      manual = true;
       draft = {};
       for (const { field } of ALL_FIELDS) draft[field] = null;
     }
