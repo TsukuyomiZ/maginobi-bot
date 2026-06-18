@@ -258,7 +258,7 @@ module.exports = {
               inline: true,
             }
           )
-          .setFooter({ text: `Discord：${interaction.user.username}｜已設為當前主角` })
+          .setFooter({ text: `Discord：${interaction.user.username}｜已設為當前主角｜輸入 /help 看看還能做什麼` })
           .setTimestamp();
 
         await btn.update({ embeds: [successEmbed], components: [] });
