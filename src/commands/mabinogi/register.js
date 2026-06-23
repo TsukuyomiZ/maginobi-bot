@@ -16,6 +16,7 @@ const {
   buildAllBattlesProgressFields,
   buildShowcaseEmbed,
 } = require('../../utils/latestProgress');
+const { buildRecommendFieldsFor } = require('../../utils/recommend');
 
 // 所有屬性皆為必填。分成兩組純粹是為了符合 Discord modal「最多 5 個輸入框」的限制，
 // 兩個修改按鈕各對應一組（基本 / 進階），與「必填 / 選填」無關。
@@ -301,6 +302,15 @@ module.exports = {
           successEmbed.addFields(
             { name: '​', value: '**🗺️ 全副本通關檢查**' },
             ...allBattleFields
+          );
+        }
+
+        // ── 最後附上「最適合打的副本」推薦（滿平滿爆，查無資料則自動略過）──
+        const recommendFields = await buildRecommendFieldsFor(savedCharacter);
+        if (recommendFields.length) {
+          successEmbed.addFields(
+            { name: '​', value: '**🎯 最適合你的副本推薦**' },
+            ...recommendFields
           );
         }
 
