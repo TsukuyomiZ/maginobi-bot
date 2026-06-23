@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+} = require('discord.js');
 const userController = require('../../controllers/userController');
 const { buildRecommendFieldsFor } = require('../../utils/recommend');
 
@@ -31,7 +38,8 @@ module.exports = {
   },
 
   async execute(interaction) {
-    await interaction.deferReply();
+    // 預設不公開，僅本人可見（之後可由「公開分享」按鈕自行貼出）
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
       // 有指定角色名稱 → 用該隻；否則用當前主角
@@ -71,7 +79,30 @@ module.exports = {
 
       if (fields.length) embed.addFields(...fields);
 
-      await interaction.editReply({ embeds: [embed] });
+      // 私人結果保留 ephemeral，附「公開分享」按鈕讓玩家自行決定是否貼出
+      const shareRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('rec_share')
+          .setLabel('📢 公開分享進度')
+          .setStyle(ButtonStyle.Primary)
+      );
+      const reply = await interaction.editReply({ embeds: [embed], components: [shareRow] });
+
+      // 等待玩家是否按下公開分享（逾時則靜默移除按鈕）
+      const shareBtn = await reply
+        .awaitMessageComponent({
+          filter: (i) => i.user.id === interaction.user.id && i.customId === 'rec_share',
+          time: 120_000,
+        })
+        .catch(() => null);
+
+      if (shareBtn) {
+        // 收掉按鈕並公開貼出推薦結果
+        await shareBtn.update({ embeds: [embed], components: [] });
+        await interaction.followUp({ embeds: [embed] });
+      } else {
+        await interaction.editReply({ components: [] }).catch(() => {});
+      }
     } catch (error) {
       console.error('[Command:recommend] Error:', error);
       await interaction.editReply('❌ 推薦失敗，請稍後再試。');

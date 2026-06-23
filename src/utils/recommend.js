@@ -32,9 +32,52 @@ function clampLines(lines, max = 1024) {
 }
 
 /**
+ * 計算「距離滿平滿爆還差多少」：
+ *   - req 門檻不足 / 未填的欄位
+ *   - 可進入時，未滿爆 / 未滿平還差的點數
+ * @returns {{shortfalls: Array<{name, short}>, total: number}}
+ *   total 為可量化的總差距點數；只要有「未填」欄位無法量化，total 設為 Infinity
+ *   （排序時自動排到最後，並提示玩家補資料）。short 為 null 代表該欄位未填。
+ */
+function computeGap(result) {
+  const shortfalls = [];
+  let total = 0;
+  let hasUnknown = false;
+
+  // req 門檻不足
+  for (const c of result.comparedFields) {
+    if (!c.passed) {
+      const short = Math.abs(c.diff);
+      shortfalls.push({ name: c.field.name, short });
+      total += short;
+    }
+  }
+  // req 欄位未填（無法量化差距）
+  for (const f of result.missingFields) {
+    shortfalls.push({ name: f.name, short: null });
+    hasUnknown = true;
+  }
+  // 可進入時才有暴擊 / 平衡的差距
+  if (result.canEnter) {
+    if (result.crit && !result.crit.passed) {
+      shortfalls.push({ name: '滿爆', short: result.crit.remaining });
+      total += result.crit.remaining;
+    }
+    if (result.balance && !result.balance.passed) {
+      shortfalls.push({ name: '滿平', short: result.balance.remaining });
+      total += result.balance.remaining;
+    }
+  }
+
+  return { shortfalls, total: hasUnknown ? Infinity : total };
+}
+
+/**
  * 評估角色在「所有副本」的狀態，分出：
  *   - ideal：可進入且滿平滿爆（依等級高到低排序）
  *   - enterable：可進入但暴擊/平衡尚未拉滿（依等級高到低排序）
+ *   - nextTarget：所有「還不能滿平滿爆」的副本中，距離最小（最接近達成）的一個，
+ *                 附上 computeGap 的差距明細；全部達成則為 null。
  * @param {object} character 角色屬性
  */
 async function getRecommendation(character) {
@@ -50,7 +93,15 @@ async function getRecommendation(character) {
     .filter((e) => e.result.canEnter && !isIdeal(e.result))
     .sort(byLevelDesc);
 
-  return { ideal, enterable };
+  // 下個推薦目標：所有尚未滿平滿爆的副本中，可量化差距最小者；
+  // 都無法量化（皆有未填欄位）時才退而選未量化的第一個。
+  const nonIdeal = evaluated
+    .filter((e) => !isIdeal(e.result))
+    .map((e) => ({ ...e, gap: computeGap(e.result) }))
+    .sort((a, b) => a.gap.total - b.gap.total);
+  const nextTarget = nonIdeal[0] || null;
+
+  return { ideal, enterable, nextTarget };
 }
 
 // 可進入但未滿平滿爆時，標註還差什麼
@@ -62,12 +113,25 @@ function enterableLine(battle, result) {
   return `• **${battle.battle_name}**（Lv.${battle.level}）${battle.isSTD ? ' 🌀' : ''}${suffix}`;
 }
 
+// 「下個推薦目標」欄位：列出最接近達成的副本，以及還差多少
+function nextTargetField(entry) {
+  const { battle, gap } = entry;
+  const parts = gap.shortfalls.map((s) =>
+    s.short == null ? `${s.name}（未填，請補資料）` : `${s.name} 差 **${s.short}**`
+  );
+  const detail = parts.length ? `還差：${parts.join('、')}` : '即將達成，再衝一點就好！';
+  return {
+    name: '🎯 下個推薦目標（差距最小）',
+    value: `**${battle.battle_name}**（Lv.${battle.level}）${battle.isSTD ? ' 🌀' : ''}\n${detail}`,
+  };
+}
+
 /**
  * 將推薦結果整理成可直接塞進 EmbedBuilder 的 fields 陣列。
- * @param {{ideal: Array, enterable: Array}} rec getRecommendation 的回傳
+ * @param {{ideal: Array, enterable: Array, nextTarget: object|null}} rec getRecommendation 的回傳
  * @returns {Array<{name, value, inline?}>}
  */
-function buildRecommendFields({ ideal, enterable }) {
+function buildRecommendFields({ ideal, enterable, nextTarget }) {
   const fields = [];
 
   if (ideal.length) {
@@ -89,12 +153,21 @@ function buildRecommendFields({ ideal, enterable }) {
       name: 'ℹ️ 目前還沒有可「滿平滿爆」的副本',
       value: '以下是你已經可以進入、但暴擊／平衡尚未拉滿的副本：\n' + clampLines(lines),
     });
-  } else {
+  } else if (!nextTarget) {
+    // 完全沒有可比對的副本資料
     fields.push({
       name: 'ℹ️ 暫無推薦',
-      value: '目前的屬性還無法穩定進入任何已收錄的副本，先衝一波裝備再回來看看吧！',
+      value: '目前沒有可比對的副本資料，等之後新增副本再回來看看吧！',
+    });
+  } else {
+    fields.push({
+      name: 'ℹ️ 還無法穩定進入任何副本',
+      value: '先看看下方「下個推薦目標」，把差距補起來吧！',
     });
   }
+
+  // 只要還有尚未滿平滿爆的副本，就附上「下個推薦目標」當作努力方向
+  if (nextTarget) fields.push(nextTargetField(nextTarget));
 
   return fields;
 }
