@@ -65,13 +65,38 @@ const userController = {
   },
 
   /**
-   * 取得使用者「當前主角」的角色資料（無角色或無主角時回傳 null）
+   * 取得使用者「當前主角」的角色資料。
+   * 若主角指標存在且有效 → 直接回傳該角色。
+   * 若指標為空或已失效（指向被刪/不存在的角色），但帳號底下其實仍有角色
+   * （例如早期手動匯入、或未經正常流程建立的資料）→ 自動取「最近更新的角色」
+   * 當主角並回寫修復，避免 /recommend、/info、/battle_compare 找不到角色。
+   * 完全沒有任何角色時才回傳 null。
    */
   async getActiveCharacter(discordId) {
     try {
       const user = await User.findOne({ discordId });
-      if (!user || !user.activeCharacterId) return null;
-      return Character.findById(user.activeCharacterId);
+      if (user && user.activeCharacterId) {
+        const active = await Character.findById(user.activeCharacterId);
+        if (active) return active;
+      }
+
+      // 後備：主角指標空了或失效，但帳號其實有角色 → 取最近更新的一隻並回寫為主角
+      const fallback = await Character.findOne({ discordId }).sort({ updatedAt: -1 });
+      if (!fallback) return null;
+
+      await User.findOneAndUpdate(
+        { discordId },
+        {
+          $set: {
+            discordId,
+            discordUsername: fallback.discordUsername, // User.discordUsername 為必填
+            activeCharacterId: fallback._id,
+          },
+        },
+        { upsert: true, runValidators: true }
+      );
+
+      return fallback;
     } catch (error) {
       console.error('[UserController] getActiveCharacter error:', error);
       throw error;

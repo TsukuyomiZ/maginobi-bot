@@ -371,11 +371,19 @@ module.exports = {
         draft[field] = parseStat(modalSubmit.fields.getTextInputValue(field));
       }
 
-      // 用 modal 互動更新原訊息
-      await modalSubmit.update({
-        embeds: [buildResultEmbed(draft, userName, manual)],
-        components: buildButtons(draft),
-      });
+      // 更新原訊息：對 ephemeral 訊息而言，modalSubmit.update() 不夠穩定
+      // （偶爾會丟錯導致 Modal 提交沒被 ack → 客戶端顯示「此交互失敗」）。
+      // 改為先 deferUpdate() ack 掉 Modal 提交，再用最初的 interaction.editReply()
+      // （deferReply 的 token，15 分鐘內最穩定）編輯訊息。
+      try {
+        await modalSubmit.deferUpdate();
+        await interaction.editReply({
+          embeds: [buildResultEmbed(draft, userName, manual)],
+          components: buildButtons(draft),
+        });
+      } catch (error) {
+        console.error('[register] 更新屬性訊息失敗：', error);
+      }
     }
   },
 };
