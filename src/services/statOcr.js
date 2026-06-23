@@ -13,9 +13,42 @@ let workerPromise = null;
 async function getWorker() {
   if (!workerPromise) {
     // 繁體中文 + 英數，用於辨識屬性標籤與數字
-    workerPromise = createWorker(['chi_tra', 'eng']);
+    // 建立失敗時清掉快取，避免把「壞掉的 worker promise」永久重用
+    workerPromise = createWorker(['chi_tra', 'eng']).catch((err) => {
+      workerPromise = null;
+      throw err;
+    });
   }
   return workerPromise;
+}
+
+/**
+ * 丟棄並終止目前的 worker，讓下次辨識重新建立。
+ * 在辨識出錯（worker 內部狀態可能已損毀）時呼叫。
+ */
+async function resetWorker() {
+  const pending = workerPromise;
+  workerPromise = null;
+  if (!pending) return;
+  try {
+    const worker = await pending;
+    await worker.terminate();
+  } catch {
+    /* 已經壞掉就忽略 */
+  }
+}
+
+/**
+ * 序列化辨識：tesseract.js 的單一 worker 一次只能處理一個 recognize，
+ * 併發呼叫會讓 WASM 內部狀態損毀（出現「載入語言 'ୱ'」這類亂碼錯誤）。
+ * 用一條 promise 鏈把所有辨識排隊，確保同時只有一個在跑。
+ */
+let recognizeChain = Promise.resolve();
+function runExclusive(task) {
+  const result = recognizeChain.then(task, task);
+  // 不論這次成功或失敗，都讓後續任務能繼續排隊
+  recognizeChain = result.then(() => {}, () => {});
+  return result;
 }
 
 /**
@@ -159,13 +192,19 @@ async function recognizeStats(imageUrl) {
   // 前處理以提升辨識率（失敗會自動退回原圖）
   const processed = await preprocessImage(buffer);
 
-  const worker = await getWorker();
-  const { data } = await worker.recognize(processed);
-  const rawText = data.text || '';
-
-  const stats = parseStats(rawText);
-
-  return { stats, rawText };
+  // 透過序列化佇列辨識，避免併發損毀共用 worker；出錯則重建 worker 以利下次
+  return runExclusive(async () => {
+    try {
+      const worker = await getWorker();
+      const { data } = await worker.recognize(processed);
+      const rawText = data.text || '';
+      return { stats: parseStats(rawText), rawText };
+    } catch (err) {
+      console.error('[statOcr] 辨識失敗，將重建 worker：', err.message);
+      await resetWorker();
+      throw err;
+    }
+  });
 }
 
 module.exports = { recognizeStats, parseStats };

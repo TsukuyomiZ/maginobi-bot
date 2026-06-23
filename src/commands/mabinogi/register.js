@@ -173,12 +173,13 @@ module.exports = {
     const isOwner = (i) => i.user.id === interaction.user.id;
 
     while (true) {
+      // 等玩家操作的視窗拉長到 10 分鐘，讓你有充裕時間逐項核對自己的能力值
       const btn = await reply
-        .awaitMessageComponent({ filter: isOwner, time: 300_000 })
+        .awaitMessageComponent({ filter: isOwner, time: 600_000 })
         .catch(() => null);
 
       if (!btn) {
-        // 逾時：移除按鈕
+        // 逾時：移除按鈕（最初的 interaction token 可能已過期，故容錯）
         await interaction.editReply({
           embeds: [
             new EmbedBuilder()
@@ -186,7 +187,7 @@ module.exports = {
               .setDescription('⏰ 操作逾時，請重新使用 `/register`。'),
           ],
           components: [],
-        });
+        }).catch(() => {});
         return;
       }
 
@@ -234,7 +235,7 @@ module.exports = {
           });
         } catch (error) {
           if (error.message === 'MAX_CHARACTERS_REACHED') {
-            await interaction.editReply({
+            await btn.editReply({
               embeds: [
                 new EmbedBuilder()
                   .setColor(0xED4245)
@@ -248,7 +249,7 @@ module.exports = {
             return;
           }
           console.error('[register] 寫入失敗：', error);
-          await interaction.editReply({
+          await btn.editReply({
             embeds: [
               new EmbedBuilder()
                 .setColor(0xED4245)
@@ -326,21 +327,22 @@ module.exports = {
             .setLabel('📢 公開分享進度')
             .setStyle(ButtonStyle.Primary)
         );
-        // 已於前面 deferUpdate，這裡用 editReply 顯示結果（btn 已被 ack，不能再 update）
-        await interaction.editReply({ embeds: [successEmbed], components: [shareRow] });
+        // 已於前面 deferUpdate；用「按鈕當下的 token」editReply 顯示結果
+        // （token 較新、壽命較長，避免你核對能力值花太久導致最初的 token 失效）
+        await btn.editReply({ embeds: [successEmbed], components: [shareRow] });
 
         // 等待玩家是否按下公開分享（逾時則靜默移除按鈕）
         const shareBtn = await reply
           .awaitMessageComponent({
             filter: (i) => isOwner(i) && i.customId === 'reg_share',
-            time: 120_000,
+            time: 300_000,
           })
           .catch(() => null);
 
         if (shareBtn) {
-          // 收掉按鈕並公開貼出展示卡
+          // 收掉按鈕並公開貼出展示卡（用 shareBtn 的新 token followUp，較不會失效）
           await shareBtn.update({ embeds: [successEmbed], components: [] });
-          await interaction.followUp({
+          await shareBtn.followUp({
             embeds: [
               buildShowcaseEmbed({
                 user: interaction.user,
@@ -349,7 +351,7 @@ module.exports = {
                 progressFields,
               }),
             ],
-          });
+          }).catch((err) => console.error('[register] 公開分享失敗：', err.message));
         } else {
           await interaction.editReply({ components: [] }).catch(() => {});
         }
@@ -364,7 +366,7 @@ module.exports = {
       await btn.showModal(buildEditModal(modalId, fields, draft));
 
       const modalSubmit = await btn
-        .awaitModalSubmit({ filter: (i) => isOwner(i) && i.customId === modalId, time: 120_000 })
+        .awaitModalSubmit({ filter: (i) => isOwner(i) && i.customId === modalId, time: 300_000 })
         .catch(() => null);
 
       if (!modalSubmit) {
@@ -383,7 +385,8 @@ module.exports = {
       // （deferReply 的 token，15 分鐘內最穩定）編輯訊息。
       try {
         await modalSubmit.deferUpdate();
-        await interaction.editReply({
+        // 用 modal 提交當下的 token editReply（token 較新，較不會因為操作久而失效）
+        await modalSubmit.editReply({
           embeds: [buildResultEmbed(draft, userName, manual)],
           components: buildButtons(draft),
         });
