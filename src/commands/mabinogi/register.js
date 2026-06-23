@@ -214,6 +214,11 @@ module.exports = {
           continue;
         }
 
+        // 先立刻 ack 按鈕：後面要寫入 DB ＋ 查最新副本/全副本/推薦（多次查詢，
+        // 很可能超過 Discord 的 3 秒 ack 時限）。先 deferUpdate 佔位，
+        // 全部算完再用 interaction.editReply 顯示，避免「此交互失敗」。
+        await btn.deferUpdate();
+
         let regResult;
         try {
           regResult = await userController.addOrUpdateCharacter(interaction.user.id, interaction.user.username, {
@@ -229,7 +234,7 @@ module.exports = {
           });
         } catch (error) {
           if (error.message === 'MAX_CHARACTERS_REACHED') {
-            await btn.update({
+            await interaction.editReply({
               embeds: [
                 new EmbedBuilder()
                   .setColor(0xED4245)
@@ -243,7 +248,7 @@ module.exports = {
             return;
           }
           console.error('[register] 寫入失敗：', error);
-          await btn.update({
+          await interaction.editReply({
             embeds: [
               new EmbedBuilder()
                 .setColor(0xED4245)
@@ -321,7 +326,8 @@ module.exports = {
             .setLabel('📢 公開分享進度')
             .setStyle(ButtonStyle.Primary)
         );
-        await btn.update({ embeds: [successEmbed], components: [shareRow] });
+        // 已於前面 deferUpdate，這裡用 editReply 顯示結果（btn 已被 ack，不能再 update）
+        await interaction.editReply({ embeds: [successEmbed], components: [shareRow] });
 
         // 等待玩家是否按下公開分享（逾時則靜默移除按鈕）
         const shareBtn = await reply
